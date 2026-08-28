@@ -4,7 +4,6 @@ import React from 'react';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 import { useCart } from '@/context/CartContext';
-import { useWishlist } from '@/context/WishlistContext';
 
 export interface Product {
   id: string;
@@ -41,7 +40,6 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function ProductGrid({ products }: { products: Product[] }) {
   const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
   const [addedIds, setAddedIds] = React.useState<Set<string>>(new Set());
 
   const handleAdd = (p: Product) => {
@@ -82,29 +80,6 @@ export default function ProductGrid({ products }: { products: Product[] }) {
         <div key={p.id} className="bg-card rounded-2xl overflow-hidden card-shadow product-card-hover group flex flex-col">
           {/* Image */}
           <div className="relative h-52 overflow-hidden bg-muted/30">
-            <button
-              type="button"
-              onClick={() => toggleWishlist({
-                id: p.id,
-                name: p.name,
-                price: p.price,
-                originalPrice: p.originalPrice,
-                image: p.image,
-                category: p.category,
-                rating: p.rating,
-                discount: p.discount,
-                variant: p.variant,
-              })}
-              className="absolute top-3 left-3 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
-              aria-label={isInWishlist(p.id) ? 'Remove from wishlist' : 'Add to wishlist'}
-            >
-              <Icon
-                name="HeartIcon"
-                variant={isInWishlist(p.id) ? 'solid' : 'outline'}
-                size={18}
-                className={isInWishlist(p.id) ? 'text-red-500' : 'text-foreground'}
-              />
-            </button>
             <AppImage
               src={p.image}
               alt={p.alt}
@@ -185,7 +160,3 @@ export default function ProductGrid({ products }: { products: Product[] }) {
     </div>
   );
 }
-
-
-
-
