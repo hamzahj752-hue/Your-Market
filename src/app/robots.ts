@@ -1,13 +1,27 @@
 import { MetadataRoute } from 'next';
 
+const baseUrl =
+  (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '') || 'http://localhost:3000';
+
+// NOTE: robots.txt is SEO guidance only, not access control. RLS and admin
+// authorization remain authoritative for protecting private data.
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: ['/api/', '/_next/', '/admin/'],
-    },
+    rules: [
+      {
+        userAgent: '*',
+        allow: ['/', '/products', '/products/', '/assets/'],
+        disallow: [
+          '/admin/',
+          '/account/',
+          '/checkout',
+          '/wishlist',
+          '/api/',
+          '/_next/',
+          '/favicon.ico',
+        ],
+      },
+    ],
     sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

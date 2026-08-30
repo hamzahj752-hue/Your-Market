@@ -19,4 +19,9 @@ export const imageHosts = [
         protocol: 'https',
         hostname: 'img.rocket.new',
     },
+    {
+        // Supabase Storage (project-specific host, e.g. <ref>.supabase.co)
+        protocol: 'https',
+        hostname: '*.supabase.co',
+    },
 ];

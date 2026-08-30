@@ -36,13 +36,11 @@ export default function CartItemRow({ item }: { item: CartItemType }) {
             <h3 className="text-sm font-700 text-foreground leading-snug line-clamp-2 mb-1">
               {item.name}
             </h3>
-            {item.variant && (
-              <p className="text-xs text-muted-foreground">{item.variant}</p>
-            )}
+            {item.variant && <p className="text-xs text-muted-foreground">{item.variant}</p>}
           </div>
           <button
             onClick={() => removeFromCart(item.id)}
-            className="p-1.5 rounded-lg hover:bg-red-50hover:text-red-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+            className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
             aria-label={`Remove ${item.name} from cart`}
           >
             <Icon name="TrashIcon" size={16} className="text-muted-foreground" />
@@ -75,9 +73,7 @@ export default function CartItemRow({ item }: { item: CartItemType }) {
               रू{(item.price * item.quantity).toLocaleString()}
             </p>
             {item.quantity > 1 && (
-              <p className="text-xs text-muted-foreground">
-                रू{item.price.toLocaleString()} each
-              </p>
+              <p className="text-xs text-muted-foreground">रू{item.price.toLocaleString()} each</p>
             )}
           </div>
         </div>

@@ -36,7 +36,7 @@ export default function Footer() {
 
           {/* Right: Links */}
           <div className="flex flex-wrap gap-x-8 gap-y-3 md:justify-end items-start">
-            {footerLinks.map(link => (
+            {footerLinks.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
@@ -50,11 +50,9 @@ export default function Footer() {
 
         {/* Bottom row */}
         <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-muted-foreground text-sm">
-            © 2026 ShopAll Inc. All rights reserved.
-          </p>
+          <p className="text-muted-foreground text-sm">© 2026 ShopAll Inc. All rights reserved.</p>
           <div className="flex items-center gap-3">
-            {socialLinks.map(s => (
+            {socialLinks.map((s) => (
               <a
                 key={s.label}
                 href={s.href}

@@ -21,10 +21,7 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border shadow-lg lg:hidden">
       <div className="flex items-center justify-around h-16">
         {navItems?.map((item) => {
-          const isActive =
-            item?.href === '/'
-              ? pathname === '/'
-              : pathname?.startsWith(item?.href);
+          const isActive = item?.href === '/' ? pathname === '/' : pathname?.startsWith(item?.href);
 
           return (
             <Link
@@ -47,7 +44,9 @@ export default function BottomNav() {
                   </span>
                 )}
               </div>
-              <span className={`text-[10px] font-600 leading-none ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+              <span
+                className={`text-[10px] font-600 leading-none ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+              >
                 {item?.label}
               </span>
             </Link>

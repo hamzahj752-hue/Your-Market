@@ -2,6 +2,11 @@
 node_modules/
 package-lock.json
 
+# Environment / secrets (never commit real values)
+.env
+.env.*
+!.env.example
+
 # Next.js build output
 .next/
 out/
@@ -35,3 +40,34 @@ jest-test-results.json
 
 # Optional: if using TurboRepo or monorepo
 turbo/
+.vercel
+
+# YourMarket local/debug/backup files
+DEBUG_ALL.txt
+YOURMARKET-CURRENT-CODE.txt
+account-effect.txt
+account-page.txt
+checkout-page.txt
+product-details-client.txt
+products-page.txt
+products-schema-check.txt
+src-all-code.txt
+src-fix-batch.txt
+supabase-test.ts
+
+# Local backups / generated archives
+YourMarket-backup-*/
+*.backup
+*.backup.*
+*.before-*
+
+# Local upgrade scripts
+upgrade-yourmarket.ps1
+upgrade-yourmarket-fixed.ps1
+
+# Android/Capacitor local build artifacts
+android/
+
+supabase/.temp/
+
+*.backup*

@@ -61,10 +61,7 @@ export default function FilterSidebar({
             Filters
           </h2>
           {hasFilters && (
-            <button
-              onClick={onClearAll}
-              className="text-xs text-accent font-600 hover:underline"
-            >
+            <button onClick={onClearAll} className="text-xs text-accent font-600 hover:underline">
               Clear All
             </button>
           )}
@@ -72,9 +69,11 @@ export default function FilterSidebar({
 
         {/* Categories */}
         <div className="mb-6">
-          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">Category</h3>
+          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
+            Category
+          </h3>
           <div className="space-y-1">
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => onCategoryChange(cat.id)}
@@ -85,7 +84,9 @@ export default function FilterSidebar({
                 }`}
               >
                 <span>{cat.label}</span>
-                <span className={`text-xs ${activeCategory === cat.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                <span
+                  className={`text-xs ${activeCategory === cat.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
+                >
                   {cat.count >= 1000000
                     ? `${(cat.count / 1000000).toFixed(1)}M`
                     : `${(cat.count / 1000).toFixed(0)}K`}
@@ -97,9 +98,11 @@ export default function FilterSidebar({
 
         {/* Price Range */}
         <div className="mb-6">
-          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">Price Range</h3>
+          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
+            Price Range
+          </h3>
           <div className="space-y-1">
-            {priceRanges.map(range => (
+            {priceRanges.map((range) => (
               <button
                 key={range.id}
                 onClick={() => onPriceChange(range.id)}
@@ -128,9 +131,11 @@ export default function FilterSidebar({
 
         {/* Rating */}
         <div>
-          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">Customer Rating</h3>
+          <h3 className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
+            Customer Rating
+          </h3>
           <div className="space-y-1">
-            {ratingOptions.map(opt => (
+            {ratingOptions.map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => onRatingChange(activeRating === opt.id ? '' : opt.id)}
@@ -141,7 +146,7 @@ export default function FilterSidebar({
                 }`}
               >
                 <div className="flex gap-0.5">
-                  {[1,2,3,4,5].map(i => (
+                  {[1, 2, 3, 4, 5].map((i) => (
                     <Icon
                       key={i}
                       name="StarIcon"
