@@ -26,9 +26,9 @@ export default function FeaturedProducts() {
     <section className="section-pad bg-muted/40" aria-labelledby="featured-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-5">
           <div>
-            <span className="text-accent font-700 text-sm uppercase tracking-widest mb-2 block">
+            <span className="text-accent font-700 text-xs sm:text-sm uppercase tracking-widest mb-1 block">
               Curated for You
             </span>
             <h2

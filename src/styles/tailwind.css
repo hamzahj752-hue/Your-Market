@@ -79,7 +79,7 @@
   }
 
   .text-section-title {
-    font-size: clamp(1.5rem, 2rem + 1vw, 2.25rem);
+    font-size: clamp(1.5rem, 1rem + 2vw, 2.25rem);
   }
 
   .gradient-primary {
@@ -413,6 +413,19 @@
   .floating-badge-delayed {
     animation: floatBadge 3s ease-in-out 1.5s infinite;
   }
+
+  /* Tailwind display utilities (e.g. `hidden`) must win over the component
+     button/icon display rules declared above when both sit on the same
+     element. Without this, `.btn-primary`/`.btn-accent`/`.btn-outline`/
+     `.icon-btn` would override `hidden` and the element stays visible. */
+  @media (max-width: 639.98px) {
+    .icon-btn.hidden,
+    .btn-primary.hidden,
+    .btn-accent.hidden,
+    .btn-outline.hidden {
+      display: none !important;
+    }
+  }
 }
 
 @keyframes fadeUp {
@@ -478,7 +491,7 @@
   }
 
   .section-pad {
-    padding-top: 3rem;
-    padding-bottom: 3rem;
+    padding-top: 1.75rem;
+    padding-bottom: 1.75rem;
   }
 }

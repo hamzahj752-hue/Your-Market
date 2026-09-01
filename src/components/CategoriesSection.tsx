@@ -81,14 +81,14 @@ export default function CategoriesSection() {
     <section className="section-pad bg-white" ref={sectionRef} aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-4 md:mb-6">
           <div>
-            <span className="text-accent font-700 text-sm uppercase tracking-widest mb-2 block">
+            <span className="text-accent font-700 text-xs sm:text-sm uppercase tracking-widest mb-1 block">
               Browse
             </span>
             <h2
               id="categories-heading"
-              className="text-section-title font-800 text-foreground leading-tight"
+              className="text-2xl md:text-3xl lg:text-4xl font-800 text-foreground leading-tight"
             >
               Shop by Category
             </h2>
@@ -102,34 +102,21 @@ export default function CategoriesSection() {
           </Link>
         </div>
 
-        {/* Responsive grid: 2 cols on phones, 4 on desktop */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+        {/* Responsive grid: 2 compact cols on phones, more on larger screens */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
           {items.map((c, i) => {
-            const isFirst = i === 0;
-            const isLast = i === items.length - 1;
-
-            let span = 'col-span-1';
-            let height = 'h-36 sm:h-44';
-            if (isFirst) {
-              span = 'col-span-2 sm:col-span-2';
-              height = 'h-44 sm:h-52';
-            } else if (isLast) {
-              span = 'col-span-2 sm:col-span-4';
-              height = 'h-36 sm:h-40';
-            }
-
             return (
               <div
                 key={c.id || `${c.name}-${i}`}
                 data-idx={i}
-                className={`cat-card ${span} animate-on-scroll`}
+                className="cat-card animate-on-scroll"
               >
                 <Link
                   href={`/products?category=${encodeURIComponent(c.name)}`}
                   className="block h-full"
                 >
                   <div
-                    className={`relative ${height} rounded-2xl overflow-hidden category-card-hover cursor-pointer group bg-primary/70`}
+                    className={`relative h-32 sm:h-36 md:h-40 lg:h-44 rounded-2xl overflow-hidden category-card-hover cursor-pointer group bg-primary/70`}
                   >
                     {c.image ? (
                       <AppImage
@@ -146,8 +133,8 @@ export default function CategoriesSection() {
                     {/* Consistent readable overlay */}
                     <div className="absolute inset-0 from-black/55 to-transparent bg-gradient-to-t" />
 
-                    <div className="absolute inset-0 p-4 flex flex-col justify-end">
-                      <h3 className="text-white font-800 text-base md:text-lg leading-tight">
+                    <div className="absolute inset-0 p-2.5 md:p-4 flex flex-col justify-end">
+                      <h3 className="text-white font-800 text-sm md:text-lg leading-tight line-clamp-2">
                         {c.name}
                       </h3>
                       <p className="text-white/75 text-xs font-500 mt-0.5 inline-flex items-center gap-1">
@@ -163,7 +150,7 @@ export default function CategoriesSection() {
         </div>
 
         {/* Mobile view all */}
-        <div className="mt-6 flex justify-center sm:hidden">
+        <div className="mt-4 flex justify-center sm:hidden">
           <Link href="/products" className="w-full max-w-xs">
             <button className="btn-outline w-full justify-center">
               View All Categories

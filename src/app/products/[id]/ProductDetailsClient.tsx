@@ -429,7 +429,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-28 pb-40 lg:pb-20">
+      <main className="pt-20 sm:pt-24 lg:pt-28 pb-44 lg:pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <Link
             href="/products"
@@ -541,7 +541,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 <button
                   disabled={!product.inStock || qty > maxQty}
                   onClick={addToCartWithQty}
-                  className="btn-primary flex-1 justify-center disabled:opacity-50"
+                  className="btn-primary flex-1 justify-center disabled:opacity-50 hidden sm:inline-flex"
                 >
                   <Icon name="ShoppingCartIcon" size={18} />
                   Add to Cart ({qty})
@@ -915,19 +915,45 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       </main>
 
       {product.inStock && (
-        <div className="lg:hidden fixed bottom-[68px] left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">Price</p>
-              <p className="text-lg font-800 price-deal">रू{product.price.toLocaleString()}</p>
+        <div
+          className="lg:hidden fixed bottom-[calc(60px+env(safe-area-inset-bottom))] left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 pt-3"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 border border-border rounded-full px-1.5 py-1 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="quantity-btn"
+                aria-label="Decrease quantity"
+                disabled={qty <= 1}
+              >
+                −
+              </button>
+              <span className="w-7 text-center font-800 text-sm">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
+                className="quantity-btn"
+                aria-label="Increase quantity"
+                disabled={qty >= maxQty}
+              >
+                +
+              </button>
+            </div>
+            <div className="flex-1 min-w-0 text-right">
+              <p className="text-[10px] text-muted-foreground leading-tight">Price</p>
+              <p className="text-lg font-800 price-deal leading-tight">
+                रू{product.price.toLocaleString()}
+              </p>
             </div>
             <button
               onClick={addToCartWithQty}
               disabled={!product.inStock || qty > maxQty}
-              className="btn-primary flex-1 justify-center"
+              className="btn-primary flex-1 justify-center px-4 py-3"
             >
               <Icon name="ShoppingCartIcon" size={18} />
-              Add to Cart ({qty})
+              Add to Cart
             </button>
           </div>
         </div>

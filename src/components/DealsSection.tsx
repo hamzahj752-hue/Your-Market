@@ -29,9 +29,9 @@ export default function DealsSection() {
     <section className="section-pad bg-white" aria-labelledby="deals-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="flex items-end justify-between gap-4 mb-8">
+        <div className="flex items-end justify-between gap-4 mb-5">
           <div>
-            <span className="text-deal-red font-700 text-sm uppercase tracking-widest mb-2 block flex items-center gap-2">
+            <span className="text-deal-red font-700 text-xs sm:text-sm uppercase tracking-widest mb-1 block flex items-center gap-2">
               <Icon name="FireIcon" size={16} className="text-accent" />
               Flash Deals
             </span>

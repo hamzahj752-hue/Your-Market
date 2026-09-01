@@ -137,8 +137,8 @@ export default function Header() {
 
           <input
             type="text"
-            className="w-full h-10 pl-9 pr-4 rounded-full bg-muted/70 border-2 border-transparent text-sm text-foreground placeholder:text-muted-foreground transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="Search products, brands..."
+            className="w-full h-10 pl-9 pr-10 rounded-full bg-muted/70 border-2 border-transparent text-sm text-foreground placeholder:text-muted-foreground transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            placeholder="Search products..."
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
             aria-label="Search products"
@@ -190,7 +190,7 @@ export default function Header() {
 
           <Link
             href="/wishlist"
-            className="relative icon-btn"
+            className="relative icon-btn hidden sm:inline-flex"
             aria-label={`Wishlist with ${wishlist.length} items`}
           >
             <Icon name="HeartIcon" size={22} />
