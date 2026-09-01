@@ -3,26 +3,16 @@
 import React from 'react';
 import Icon from '@/components/ui/AppIcon';
 
-const categories = [
-  { id: 'all', label: 'All Categories', count: 15800000 },
-  { id: 'Electronics', label: 'Electronics', count: 2400000 },
-  { id: 'Fashion', label: 'Fashion', count: 5100000 },
-  { id: 'Home', label: 'Home & Kitchen', count: 1800000 },
-  { id: 'Beauty', label: 'Beauty', count: 890000 },
-  { id: 'Sports', label: 'Sports', count: 1200000 },
-  { id: 'Books', label: 'Books', count: 3500000 },
-  { id: 'Toys', label: 'Toys & Games', count: 760000 },
-  { id: 'Grocery', label: 'Grocery', count: 450000 },
-];
+export interface CategoryOption {
+  id: string;
+  label: string;
+  count: number;
+}
 
-const priceRanges = [
-  { id: 'all', label: 'Any Price' },
-  { id: '0-3500', label: 'Under रू3,500' },
-  { id: '3500-6500', label: 'रू3,500 to रू6,500' },
-  { id: '6500-13000', label: 'रू6,500 to रू13,000' },
-  { id: '13000-26500', label: 'रू13,000 to रू26,500' },
-  { id: '26500+', label: 'रू26,500 & Above' },
-];
+export interface PriceRangeOption {
+  id: string;
+  label: string;
+}
 
 const ratingOptions = [
   { id: '4', label: '4★ & up' },
@@ -34,16 +24,27 @@ interface FilterSidebarProps {
   activeCategory: string;
   activePriceRange: string;
   activeRating: string;
+  categories: CategoryOption[];
+  priceRanges: PriceRangeOption[];
   onCategoryChange: (cat: string) => void;
   onPriceChange: (range: string) => void;
   onRatingChange: (rating: string) => void;
   onClearAll: () => void;
 }
 
+const formatCount = (count: number) =>
+  count >= 1000000
+    ? `${(count / 1000000).toFixed(1)}M`
+    : count >= 1000
+      ? `${Math.round(count / 1000)}K`
+      : `${count}`;
+
 export default function FilterSidebar({
   activeCategory,
   activePriceRange,
   activeRating,
+  categories,
+  priceRanges,
   onCategoryChange,
   onPriceChange,
   onRatingChange,
@@ -87,9 +88,7 @@ export default function FilterSidebar({
                 <span
                   className={`text-xs ${activeCategory === cat.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
                 >
-                  {cat.count >= 1000000
-                    ? `${(cat.count / 1000000).toFixed(1)}M`
-                    : `${(cat.count / 1000).toFixed(0)}K`}
+                  {formatCount(cat.count)}
                 </span>
               </button>
             ))}

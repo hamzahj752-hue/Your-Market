@@ -7,14 +7,14 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
-import { useWishlist } from '@/context/WishlistContext';
+import { useWishlist, WishlistProduct } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 
 export default function WishlistPage() {
   const { wishlist, toggleWishlist, clearWishlist, syncMessage } = useWishlist();
   const { addToCart } = useCart();
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: WishlistProduct) => {
     addToCart({
       id: product.id,
       name: product.name,
@@ -101,7 +101,7 @@ export default function WishlistPage() {
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                {wishlist.map((product: any) => (
+                {wishlist.map((product) => (
                   <article
                     key={product.id}
                     className="bg-card rounded-2xl overflow-hidden card-shadow product-card-hover"
@@ -149,23 +149,25 @@ export default function WishlistPage() {
                           रू{Number(product.price || 0).toLocaleString()}
                         </span>
 
-                        {product.originalPrice && (
+                        {product.originalPrice && product.originalPrice > product.price && (
                           <span className="price-original">
                             रू{Number(product.originalPrice).toLocaleString()}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 mt-2 text-sm">
-                        <Icon
-                          name="StarIcon"
-                          variant="solid"
-                          size={15}
-                          className="text-yellow-500"
-                        />
-                        <span className="font-700">{product.rating || '4.5'}</span>
-                        <span className="text-muted-foreground">rating</span>
-                      </div>
+                      {product.rating && product.rating > 0 && (
+                        <div className="flex items-center gap-1 mt-2 text-sm">
+                          <Icon
+                            name="StarIcon"
+                            variant="solid"
+                            size={15}
+                            className="text-yellow-500"
+                          />
+                          <span className="font-700">{product.rating}</span>
+                          <span className="text-muted-foreground">rating</span>
+                        </div>
+                      )}
 
                       <div className="flex gap-2 mt-4">
                         <button
@@ -197,27 +199,29 @@ export default function WishlistPage() {
                   </div>
                   <div>
                     <p className="font-800 text-sm">Secure Shopping</p>
-                    <p className="text-xs text-muted-foreground">Protected checkout</p>
+                    <p className="text-xs text-muted-foreground">
+                      Order validated before confirmation
+                    </p>
                   </div>
                 </div>
 
                 <div className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4">
                   <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center">
-                    <Icon name="TruckIcon" size={22} className="text-green-600" />
+                    <Icon name="BanknotesIcon" size={22} className="text-green-600" />
                   </div>
                   <div>
-                    <p className="font-800 text-sm">Fast Delivery</p>
-                    <p className="text-xs text-muted-foreground">Reliable shipping</p>
+                    <p className="font-800 text-sm">Cash on Delivery</p>
+                    <p className="text-xs text-muted-foreground">Pay when your order arrives</p>
                   </div>
                 </div>
 
                 <div className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4">
                   <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center">
-                    <Icon name="ArrowPathIcon" size={22} className="text-orange-500" />
+                    <Icon name="EnvelopeIcon" size={22} className="text-orange-500" />
                   </div>
                   <div>
-                    <p className="font-800 text-sm">Easy Returns</p>
-                    <p className="text-xs text-muted-foreground">30-day returns</p>
+                    <p className="font-800 text-sm">Order Updates</p>
+                    <p className="text-xs text-muted-foreground">Email and in-app notifications</p>
                   </div>
                 </div>
               </div>

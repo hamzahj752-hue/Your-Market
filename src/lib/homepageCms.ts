@@ -124,7 +124,9 @@ export async function fetchDeals(): Promise<BriefDeal[]> {
   }
 }
 
-// Returns active homepage categories joined with live category records.
+// Returns active homepage categories joined with live category records, falling
+// back to a real active product image per category when the category itself has
+// no image. The product lookup is a SINGLE batched query (no N+1).
 export async function fetchHomepageCategories(): Promise<BriefCategory[]> {
   try {
     const { data, error } = await supabase
@@ -133,7 +135,8 @@ export async function fetchHomepageCategories(): Promise<BriefCategory[]> {
       .eq('is_active', true)
       .order('sort_order', { ascending: true });
     if (error) return [];
-    return (data ?? [])
+
+    const categories = (data ?? [])
       .map((row) => row.categories as unknown as Record<string, unknown> | undefined)
       .filter((c): c is Record<string, unknown> => !!c)
       .map((c) => ({
@@ -143,6 +146,36 @@ export async function fetchHomepageCategories(): Promise<BriefCategory[]> {
         icon: c.icon != null ? String(c.icon) : null,
         slug: c.slug != null ? String(c.slug) : null,
       }));
+
+    // Gather the category names that still need a visual fallback.
+    const missingImage = categories.filter((c) => !c.image).map((c) => c.name);
+    if (missingImage.length === 0) return categories;
+
+    // Single query: one image per category, reusing the existing product image
+    // field. Avoids N+1 queries across categories. Only products that actually
+    // have an image are candidates for the visual fallback.
+    const { data: productRows, error: productError } = await supabase
+      .from('products')
+      .select('category, image')
+      .eq('active', true)
+      .not('image', 'is', null)
+      .neq('image', '');
+
+    if (productError || !productRows) return categories;
+
+    const fallbackMap = new Map<string, string>();
+    for (const p of productRows) {
+      const name = String(p.category ?? '');
+      const img = String(p.image ?? '');
+      if (img && !fallbackMap.has(name)) {
+        fallbackMap.set(name, img);
+      }
+    }
+
+    return categories.map((c) => ({
+      ...c,
+      image: c.image || fallbackMap.get(c.name) || null,
+    }));
   } catch {
     return [];
   }

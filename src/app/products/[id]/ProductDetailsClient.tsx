@@ -42,12 +42,17 @@ export interface Product {
   brand: string;
   inStock: boolean;
   description?: string;
+  sku?: string;
+  stockQuantity?: number;
 }
 
 export default function ProductDetailsClient({ id }: { id: string }) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [activeImage, setActiveImage] = useState(0);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -82,14 +87,29 @@ export default function ProductDetailsClient({ id }: { id: string }) {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
+  const maxQty = product?.stockQuantity && product.stockQuantity > 0 ? product.stockQuantity : 99;
+  const avgRating = reviews.length
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
+
   useEffect(() => {
     async function loadProduct() {
       setLoading(true);
       setLoadError('');
 
-      const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .eq('active', true)
+        .maybeSingle();
 
-      if (error) {
+      if (error && error.code === 'PGRST116') {
+        setLoadError('This product is not available.');
+        setLoading(false);
+        return;
+      }
+      if (error || !data) {
         console.error('Supabase product detail error:', error);
         setLoadError('Unable to load product. Please try again.');
         setLoading(false);
@@ -112,9 +132,23 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         brand: data.brand,
         inStock: Boolean(data.in_stock),
         description: data.description ?? undefined,
+        sku: data.sku ?? undefined,
+        stockQuantity: data.stock_quantity != null ? Number(data.stock_quantity) : undefined,
       };
 
       setProduct(mappedProduct);
+      setActiveImage(0);
+
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('product_images')
+        .select('url')
+        .eq('product_id', id)
+        .order('sort_order', { ascending: true });
+
+      if (!imagesError && imagesData && imagesData.length > 0) {
+        setGallery(imagesData.map((row) => row.url));
+      }
+
       setLoading(false);
     }
 
@@ -176,6 +210,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         .select('*')
         .eq('category', product.category)
         .neq('id', product.id)
+        .eq('active', true)
         .limit(8);
       if (cancelled) return;
       if (!error && data) {
@@ -328,7 +363,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     setReviewRating(0);
     setReviewTitle('');
     setReviewContent('');
-    setReviewSuccess('Thank you! Your review has been published.');
+    setReviewSuccess('Thank you! Your review has been submitted and will appear once approved.');
     setReviewSubmitting(false);
   };
 
@@ -385,7 +420,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-28 pb-20">
+      <main className="pt-28 pb-40 lg:pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <Link
             href="/products"
@@ -396,15 +431,35 @@ export default function ProductDetailsClient({ id }: { id: string }) {
           </Link>
 
           <div className="grid lg:grid-cols-2 gap-8 bg-card rounded-3xl p-5 md:p-8 card-shadow">
-            <div className="relative min-h-[360px] md:min-h-[520px] rounded-2xl overflow-hidden bg-muted/30">
-              <AppImage
-                src={product.image}
-                alt={product.alt}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover"
-                priority
-              />
+            <div>
+              <div className="relative min-h-[360px] md:min-h-[520px] rounded-2xl overflow-hidden bg-muted/30">
+                <AppImage
+                  src={[product.image, ...gallery][activeImage] || product.image}
+                  alt={product.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+
+              {gallery.length > 0 && (
+                <div className="flex gap-2.5 mt-3 overflow-x-auto scrollbar-hide pb-1">
+                  {[product.image, ...gallery].map((img, idx) => (
+                    <button
+                      key={`${idx}-${img}`}
+                      type="button"
+                      onClick={() => setActiveImage(idx)}
+                      className={`relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-muted/30 border-2 transition-colors ${
+                        activeImage === idx ? 'border-primary' : 'border-transparent'
+                      }`}
+                      aria-label={`View image ${idx + 1}`}
+                    >
+                      <AppImage src={img} alt="" fill sizes="96px" className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col justify-center">
@@ -416,17 +471,25 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 {product.name}
               </h1>
 
-              <div className="flex items-center gap-2 mt-4">
-                <span className="text-yellow-500">★</span>
-                <b>{product.rating}</b>
-                <span className="text-muted-foreground">
-                  ({product.reviews.toLocaleString()} reviews)
-                </span>
-              </div>
+              {product.reviews > 0 && (
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-yellow-500">★</span>
+                  <b>{product.rating}</b>
+                  <span className="text-muted-foreground">
+                    ({product.reviews.toLocaleString()} reviews)
+                  </span>
+                </div>
+              )}
 
               <p className="text-muted-foreground leading-relaxed mt-5">
                 {product.description || 'No description available.'}
               </p>
+
+              {product.sku && (
+                <p className="text-xs text-muted-foreground mt-4">
+                  SKU: <span className="font-600">{product.sku}</span>
+                </p>
+              )}
 
               <div className="flex items-baseline gap-3 mt-6">
                 <span className="text-3xl font-900 price-deal">
@@ -449,22 +512,24 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                     className="quantity-btn"
                     aria-label="Decrease quantity"
+                    disabled={qty <= 1}
                   >
                     −
                   </button>
                   <span className="w-8 text-center font-800">{qty}</span>
                   <button
                     type="button"
-                    onClick={() => setQty((q) => Math.min(99, q + 1))}
+                    onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
                     className="quantity-btn"
                     aria-label="Increase quantity"
+                    disabled={qty >= maxQty}
                   >
                     +
                   </button>
                 </div>
 
                 <button
-                  disabled={!product.inStock}
+                  disabled={!product.inStock || qty > maxQty}
                   onClick={addToCartWithQty}
                   className="btn-primary flex-1 justify-center disabled:opacity-50"
                 >
@@ -555,11 +620,13 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-yellow-500">★</span>
-                  <b>{product.rating}</b>
-                  <span className="text-muted-foreground text-sm">average rating</span>
-                </div>
+                {avgRating && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500">★</span>
+                    <b>{avgRating}</b>
+                    <span className="text-muted-foreground text-sm">average rating</span>
+                  </div>
+                )}
               </div>
 
               {reviewsError && (
@@ -836,6 +903,25 @@ export default function ProductDetailsClient({ id }: { id: string }) {
           </section>
         </div>
       </main>
+
+      {product.inStock && (
+        <div className="lg:hidden fixed bottom-[68px] left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">Price</p>
+              <p className="text-lg font-800 price-deal">रू{product.price.toLocaleString()}</p>
+            </div>
+            <button
+              onClick={addToCartWithQty}
+              disabled={!product.inStock || qty > maxQty}
+              className="btn-primary flex-1 justify-center"
+            >
+              <Icon name="ShoppingCartIcon" size={18} />
+              Add to Cart ({qty})
+            </button>
+          </div>
+        </div>
+      )}
 
       <Footer />
       <BottomNav />

@@ -19,14 +19,14 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://your-market-nu.vercel.app'),
   applicationName: 'Your Market',
   title: {
     default: 'Your Market — Everything You Need, One Place',
     template: '%s | Your Market',
   },
   description:
-    'Your Market is your one-stop online marketplace for electronics, fashion, home goods, beauty, and more — fast shipping, trusted sellers, unbeatable prices.',
+    'Your Market is a local online storefront for electronics, fashion, home goods, beauty, and more, with cash on delivery.',
   keywords: [
     'online shopping',
     'Your Market',
@@ -41,12 +41,12 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Your Market',
-    title: 'Your Market — One Place for Everything',
+    title: 'Your Market — Shop Local, Pay on Delivery',
     description:
-      'Shop millions of products across every category. Fast delivery, easy returns, trusted sellers.',
+      'Browse electronics, fashion, home goods, beauty and more — order online and pay by cash on delivery.',
     images: [
       {
-        url: '/assets/images/Online_shopping_choice-1787816570502.jpg',
+        url: '/assets/Online_shopping_choice.jpg',
         width: 1200,
         height: 630,
         alt: 'Your Market',
@@ -55,10 +55,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Your Market — One Place for Everything',
+    title: 'Your Market — Shop Local, Pay on Delivery',
     description:
-      'Shop millions of products across every category. Fast delivery, easy returns, trusted sellers.',
-    images: ['/assets/images/Online_shopping_choice-1787816570502.jpg'],
+      'Browse electronics, fashion, home goods, beauty and more — order online and pay by cash on delivery.',
+    images: ['/assets/Online_shopping_choice.jpg'],
   },
   robots: {
     index: true,
@@ -79,13 +79,6 @@ export default function RootLayout({
             <MaintenanceGate>{children}</MaintenanceGate>
           </WishlistProvider>
         </CartProvider>
-
-        <script
-          type="module"
-          async
-          src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fshopall5226back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20"
-        />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" />
       </body>
     </html>
   );

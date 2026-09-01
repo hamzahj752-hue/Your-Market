@@ -1,22 +1,60 @@
 ﻿'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CartProvider, useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import CartItemRow from './components/CartItem';
 import OrderSummary from './components/OrderSummary';
 import Icon from '@/components/ui/AppIcon';
-import { products } from '@/data/products';
+import { supabase } from '@/lib/supabase';
+
+interface RecommendedProduct {
+  id: string;
+  name: string;
+  image: string;
+  alt?: string | null;
+  price: number;
+}
+
+const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
 
 function CartContent() {
   const { items, clearCart } = useCart();
 
-  const recommendedProducts = products
-    .filter((product) => !items.some((item) => item.id === product.id))
-    .slice(0, 3);
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const [settingsRes, productsRes] = await Promise.all([
+        supabase.from('store_settings').select('free_shipping_threshold').limit(1).maybeSingle(),
+        supabase
+          .from('products')
+          .select('id, name, image, alt, price')
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .limit(6),
+      ]);
+      if (cancelled) return;
+      if (settingsRes.data) {
+        setFreeShippingThreshold(Number(settingsRes.data.free_shipping_threshold) || 0);
+      }
+      if (!productsRes.error && productsRes.data) {
+        const cartIds = new Set(items.map((i) => i.id));
+        setRecommendedProducts(
+          (productsRes.data as RecommendedProduct[]).filter((p) => !cartIds.has(p.id)).slice(0, 3)
+        );
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   if (items.length === 0) {
     return (
@@ -85,26 +123,28 @@ function CartContent() {
           ))}
 
           <div className="grid grid-cols-3 gap-3 pt-4">
-            {[
-              { icon: 'TruckIcon', label: 'Free shipping on रू6,500+' },
-              { icon: 'ArrowPathIcon', label: '30-day returns' },
-              { icon: 'ShieldCheckIcon', label: 'Buyer protection' },
-            ].map((badge) => (
-              <div
-                key={badge.label}
-                className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5"
-              >
-                <Icon
-                  name={badge.icon as Parameters<typeof Icon>[0]['name']}
-                  size={18}
-                  className="text-primary"
-                />
-
+            {freeShippingThreshold > 0 && (
+              <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
+                <Icon name="TruckIcon" size={18} className="text-primary" />
                 <span className="text-xs text-muted-foreground font-600 leading-tight">
-                  {badge.label}
+                  Free shipping on {money(freeShippingThreshold)}+
                 </span>
               </div>
-            ))}
+            )}
+
+            <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
+              <Icon name="BanknotesIcon" size={18} className="text-green-600" />
+              <span className="text-xs text-muted-foreground font-600 leading-tight">
+                Cash on Delivery
+              </span>
+            </div>
+
+            <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
+              <Icon name="ShieldCheckIcon" size={18} className="text-primary" />
+              <span className="text-xs text-muted-foreground font-600 leading-tight">
+                Secure checkout
+              </span>
+            </div>
           </div>
 
           {recommendedProducts.length > 0 && (
@@ -125,7 +165,7 @@ function CartContent() {
                       <div className="relative h-28 overflow-hidden bg-muted/30">
                         <img
                           src={rec.image}
-                          alt={rec.alt}
+                          alt={rec.alt || rec.name}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                       </div>
@@ -157,17 +197,15 @@ function CartContent() {
 
 export default function CartPage() {
   return (
-    <CartProvider>
-      <div className="min-h-screen flex flex-col bg-background">
-        <Header />
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
 
-        <main className="flex-1 pt-24 md:pt-28 pb-16 lg:pb-0">
-          <CartContent />
-        </main>
+      <main className="flex-1 pt-24 md:pt-28 pb-16 lg:pb-0">
+        <CartContent />
+      </main>
 
-        <Footer />
-        <BottomNav />
-      </div>
-    </CartProvider>
+      <Footer />
+      <BottomNav />
+    </div>
   );
 }

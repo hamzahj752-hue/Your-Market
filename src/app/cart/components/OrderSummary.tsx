@@ -1,27 +1,48 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { useCart } from '@/context/CartContext';
+import { supabase } from '@/lib/supabase';
 
-const SHIPPING_THRESHOLD = 6500;
-const TAX_RATE = 0.13;
+interface StoreSettings {
+  currency: string;
+  shipping_charge: number;
+  free_shipping_threshold: number;
+  tax_percent: number;
+}
 
 const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
 
 export default function OrderSummary() {
   const { subtotal, items } = useCart();
 
-  const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoError, setPromoError] = useState('');
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
 
-  const shipping = subtotal >= SHIPPING_THRESHOLD ? 0 : 200;
-  const discount = promoApplied ? subtotal * 0.15 : 0;
-  const taxable = Math.max(0, subtotal - discount);
-  const tax = taxable * TAX_RATE;
-  const total = taxable + tax + shipping;
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from('store_settings')
+        .select('currency, shipping_charge, free_shipping_threshold, tax_percent')
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled && data) setSettings(data as StoreSettings);
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const shippingCharge = settings?.shipping_charge ?? 200;
+  const freeShippingThreshold = settings?.free_shipping_threshold ?? 6500;
+  const taxPercent = settings?.tax_percent ?? 13;
+
+  const shipping = subtotal >= freeShippingThreshold ? 0 : shippingCharge;
+  const tax = subtotal * (taxPercent / 100);
+  const total = subtotal + shipping + tax;
 
   const savings = items.reduce((acc, item) => {
     if (item.originalPrice) {
@@ -32,21 +53,11 @@ export default function OrderSummary() {
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handlePromo = () => {
-    const code = promoCode.trim().toUpperCase();
-
-    if (code === 'SHOPALL15') {
-      setPromoApplied(true);
-      setPromoError('');
-    } else {
-      setPromoApplied(false);
-      setPromoError('Invalid promo code. Try SHOPALL15');
-    }
-  };
-
-  const remainingForFreeShipping = Math.max(0, SHIPPING_THRESHOLD - subtotal);
-
-  const shippingProgress = Math.min((subtotal / SHIPPING_THRESHOLD) * 100, 100);
+  const hasFreeShippingThreshold = freeShippingThreshold > 0;
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const shippingProgress = hasFreeShippingThreshold
+    ? Math.min((subtotal / freeShippingThreshold) * 100, 100)
+    : 100;
 
   return (
     <div className="bg-card rounded-2xl card-shadow p-6 sticky top-24">
@@ -58,17 +69,6 @@ export default function OrderSummary() {
           <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
           <span className="font-600 text-foreground">{money(subtotal)}</span>
         </div>
-
-        {promoApplied && (
-          <div className="flex justify-between text-sm">
-            <span className="text-green-600 font-600 flex items-center gap-1">
-              <Icon name="TagIcon" size={14} />
-              Promo (SHOPALL15)
-            </span>
-
-            <span className="text-green-600 font-700">-{money(discount)}</span>
-          </div>
-        )}
 
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Shipping</span>
@@ -116,64 +116,15 @@ export default function OrderSummary() {
           </div>
         </div>
       ) : (
-        <div className="mb-5 bg-green-50 rounded-xl p-3">
-          <p className="text-xs text-green-700 font-700 flex items-center gap-2">
-            <Icon name="CheckCircleIcon" size={15} />
-            You&apos;ve unlocked FREE shipping!
-          </p>
-        </div>
+        hasFreeShippingThreshold && (
+          <div className="mb-5 bg-green-50 rounded-xl p-3">
+            <p className="text-xs text-green-700 font-700 flex items-center gap-2">
+              <Icon name="CheckCircleIcon" size={15} />
+              You&apos;ve unlocked FREE shipping!
+            </p>
+          </div>
+        )
       )}
-
-      {/* Promo */}
-      <div className="mb-5">
-        <label
-          htmlFor="promo-input"
-          className="text-xs font-700 uppercase tracking-widest text-muted-foreground block mb-2"
-        >
-          Promo Code
-        </label>
-
-        <div className="flex gap-2">
-          <input
-            id="promo-input"
-            type="text"
-            value={promoCode}
-            onChange={(e) => {
-              setPromoCode(e.target.value);
-              setPromoError('');
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handlePromo();
-              }
-            }}
-            placeholder="Enter code"
-            className="flex-1 min-w-0 border border-border rounded-xl px-3 py-2 text-sm font-600 bg-background focus:outline-none focus:border-primary transition-colors"
-          />
-
-          <button
-            type="button"
-            onClick={handlePromo}
-            disabled={promoApplied || !promoCode.trim()}
-            className={`px-4 py-2 rounded-xl text-sm font-700 transition-all ${
-              promoApplied
-                ? 'bg-green-500 text-white cursor-default'
-                : 'bg-primary text-primary-foreground hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
-          >
-            {promoApplied ? <Icon name="CheckIcon" size={16} /> : 'Apply'}
-          </button>
-        </div>
-
-        {promoError && <p className="text-xs text-red-500 font-500 mt-1.5">{promoError}</p>}
-
-        {promoApplied && (
-          <p className="text-xs text-green-600 font-600 mt-1.5 flex items-center gap-1">
-            <Icon name="CheckCircleIcon" size={13} />
-            15% discount applied!
-          </p>
-        )}
-      </div>
 
       <div className="border-t border-border my-4" />
 
@@ -193,19 +144,15 @@ export default function OrderSummary() {
         <Icon name="LockClosedIcon" size={16} />
       </Link>
 
+      {/* Payment Method */}
+      <div className="flex items-center justify-center gap-2 mt-4">
+        <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">Cash on Delivery</span>
+      </div>
+
       <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
         <Icon name="ShieldCheckIcon" size={13} />
-        Secure SSL encrypted checkout
+        Your order is validated before confirmation.
       </p>
-
-      {/* Payment Methods */}
-      <div className="flex items-center justify-center gap-2 mt-4">
-        <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">VISA</span>
-
-        <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">Mastercard</span>
-
-        <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">COD</span>
-      </div>
     </div>
   );
 }

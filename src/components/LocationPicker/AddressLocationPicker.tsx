@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -58,26 +58,22 @@ function buildPreview(addr: Record<string, string | undefined>, displayName: str
   return '';
 }
 
-interface LocationPickerProps {
-  address: string;
-  onAddressChange: (address: string) => void;
-  onCityChange?: (city: string) => void;
-  onLocationChange?: (location: { lat: number; lng: number }) => void;
+interface AddressLocationPickerProps {
+  onStreetChange: (street: string) => void;
+  onCityChange: (city: string) => void;
 }
 
-export default function LocationPicker({
-  address,
-  onAddressChange,
+export default function AddressLocationPicker({
+  onStreetChange,
   onCityChange,
-  onLocationChange,
-}: LocationPickerProps) {
+}: AddressLocationPickerProps) {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [accuracyWarning, setAccuracyWarning] = useState('');
   const [detectedLocation, setDetectedLocation] = useState('');
-  // Weak GPS readings must not overwrite the customer's manually entered
-  // address or city. Manual pin placement clears this gating.
+  // When true, current GPS result is unreliable and must NOT overwrite the
+  // customer's manually entered address/city. Manual pin placement clears it.
   const weakAccuracyRef = useRef(false);
   const [weakAccuracy, setWeakAccuracy] = useState(false);
 
@@ -90,6 +86,7 @@ export default function LocationPicker({
         );
 
         if (!response.ok) {
+          setDetectedLocation('');
           setLocationError(
             "We found your GPS location but couldn't determine the address. Please enter it manually."
           );
@@ -105,41 +102,40 @@ export default function LocationPicker({
 
         setDetectedLocation(preview);
 
-        // Only auto-fill customer fields from a reliable reading. A manual pin
-        // placement is a deliberate exact selection and may fill.
+        // Only auto-fill the customer's fields when the reading is reliable.
+        // A manual pin placement is a deliberate, exact selection and may fill.
         if (!weakAccuracyRef.current) {
           if (addressLine) {
-            onAddressChange(addressLine);
-          } else if (data.display_name) {
-            onAddressChange(data.display_name);
+            onStreetChange(addressLine);
           }
           if (locality) {
-            onCityChange?.(locality);
+            onCityChange(locality);
           }
         }
       } catch {
+        setDetectedLocation('');
         setLocationError(
           "We found your GPS location but couldn't determine the address. Please enter it manually."
         );
       }
     },
-    [onAddressChange, onCityChange]
+    [onStreetChange, onCityChange]
   );
 
   const handleMapMove = useCallback(
     (newLocation: { lat: number; lng: number }) => {
+      // Manual selection is exact — clear weak-accuracy gating and allow fill.
       weakAccuracyRef.current = false;
       setWeakAccuracy(false);
       setLocation(newLocation);
-      onLocationChange?.(newLocation);
       setAccuracyWarning('');
       setDetectedLocation('');
       reverseGeocode(newLocation.lat, newLocation.lng);
     },
-    [onLocationChange, reverseGeocode]
+    [reverseGeocode]
   );
 
-  const useMyLocation = () => {
+  const useCurrentLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('GPS is not supported by this browser.');
       return;
@@ -158,7 +154,6 @@ export default function LocationPicker({
 
         const newLocation = { lat, lng };
         setLocation(newLocation);
-        onLocationChange?.(newLocation);
 
         const weak = accuracy > 500;
         weakAccuracyRef.current = weak;
@@ -170,13 +165,17 @@ export default function LocationPicker({
           );
         }
 
+        // Reverse-geocode for preview/marker, but fields are not overwritten
+        // when accuracy is weak (handled inside reverseGeocode).
         await reverseGeocode(lat, lng);
         setLoading(false);
       },
       (err) => {
         setLoading(false);
         if (err.code === 1) {
-          setLocationError('Location permission denied. Please allow GPS access and try again.');
+          setLocationError(
+            'Location permission was denied. Please allow GPS access and try again.'
+          );
         } else if (err.code === 2) {
           setLocationError(
             'Unable to determine your location. Please try again or enter your address manually.'
@@ -202,25 +201,49 @@ export default function LocationPicker({
   const showDetected = detectedLocation && !weakAccuracy;
 
   return (
-    <div className="sm:col-span-2 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <label className="text-sm font-700 text-foreground">Delivery Address</label>
-
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={useMyLocation}
+          onClick={useCurrentLocation}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-700 hover:bg-blue-600 transition-colors disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-700 hover:bg-primary/90 transition-colors disabled:opacity-60"
         >
-          <Icon name={location ? 'ArrowPathIcon' : 'MapPinIcon'} size={14} />
-          {loading ? 'Finding location...' : location ? 'Update Location' : 'Use My Location'}
+          {loading ? (
+            <>
+              <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              Finding your location...
+            </>
+          ) : location ? (
+            <>
+              <Icon name="ArrowPathIcon" size={14} />
+              Update location
+            </>
+          ) : (
+            <>
+              <Icon name="MapPinIcon" size={14} />
+              Use Current Location
+            </>
+          )}
         </button>
+        {location && !loading && !weakAccuracy && (
+          <span className="inline-flex items-center gap-1 text-xs text-green-700 font-600">
+            <Icon name="CheckCircleIcon" size={13} className="text-green-600" />
+            Location detected
+          </span>
+        )}
+        {location && !loading && weakAccuracy && (
+          <span className="inline-flex items-center gap-1 text-xs text-amber-700 font-600">
+            <Icon name="ExclamationTriangleIcon" size={13} className="text-amber-600" />
+            Approximate location
+          </span>
+        )}
       </div>
 
-      {locationError && <p className="text-sm text-red-500 font-600">{locationError}</p>}
+      {locationError && <p className="text-xs text-red-500 font-600">{locationError}</p>}
 
       {accuracyWarning && (
-        <div className="flex items-start gap-2 text-sm text-amber-600 font-600 bg-amber-50 rounded-xl px-3 py-2">
+        <div className="flex items-start gap-2 text-xs text-amber-600 font-600 bg-amber-50 rounded-xl px-3 py-2">
           <span className="mt-0.5">⚠</span>
           <span>{accuracyWarning}</span>
         </div>
@@ -228,9 +251,8 @@ export default function LocationPicker({
 
       {weakAccuracy && detectedLocation && (
         <p className="text-xs text-amber-700 font-600 bg-amber-50 rounded-xl px-3 py-2">
-          Approximate area: {detectedLocation}. Your address and city were <strong>not</strong>{' '}
-          auto-filled because the GPS signal is weak — drag the pin on the map to confirm the exact
-          delivery point.
+          Approximate area: {detectedLocation}. Your address and city were not auto-filled because
+          the GPS signal is weak — drag the pin on the map to confirm the exact delivery point.
         </p>
       )}
 
@@ -239,13 +261,6 @@ export default function LocationPicker({
           Detected location: {detectedLocation}
         </p>
       )}
-
-      <textarea
-        className="input-search w-full min-h-28"
-        placeholder="Enter your delivery address or use your GPS location"
-        value={address}
-        onChange={(e) => onAddressChange(e.target.value)}
-      />
 
       {location && (
         <div className="rounded-2xl overflow-hidden border border-border">

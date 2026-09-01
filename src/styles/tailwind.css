@@ -31,6 +31,11 @@
     border-color: var(--border);
   }
 
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
@@ -52,6 +57,16 @@
   p {
     margin: 0;
   }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  img {
+    max-width: 100%;
+  }
 }
 
 @layer utilities {
@@ -64,7 +79,7 @@
   }
 
   .text-section-title {
-    font-size: clamp(1.75rem, 4vw, 3rem);
+    font-size: clamp(1.5rem, 2rem + 1vw, 2.25rem);
   }
 
   .gradient-primary {
@@ -73,6 +88,16 @@
 
   .gradient-accent {
     background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%);
+  }
+
+  /* Gradient text that can never degrade into a filled rectangle: the
+     background-image + background-clip:text are declared together so no later
+     `background` shorthand can reset background-clip back to border-box. */
+  .text-gradient-accent {
+    background-image: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .gradient-deal {
@@ -195,6 +220,30 @@
   .btn-outline:hover {
     background-color: var(--primary);
     color: var(--primary-foreground);
+  }
+
+  /* Compact, consistent icon button used in headers/navs. */
+  .icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground);
+    transition:
+      background-color 0.2s ease,
+      transform 0.15s ease,
+      color 0.2s ease;
+  }
+
+  .icon-btn:hover {
+    background-color: var(--muted);
+    color: var(--primary);
+  }
+
+  .icon-btn:active {
+    transform: scale(0.94);
   }
 
   .animate-on-scroll {

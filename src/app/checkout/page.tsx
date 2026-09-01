@@ -33,6 +33,37 @@ interface PlacedOrder {
 
 const PAYMENT_METHODS: Array<[string, string]> = [['cod', 'Cash on Delivery']];
 
+const FRIENDLY_ERRORS: Array<[RegExp, string]> = [
+  [/must be signed in/i, 'Please sign in before placing an order.'],
+  [/cart is empty/i, 'Your cart is empty.'],
+  [/invalid or expired coupon/i, 'The coupon code you entered is invalid or has expired.'],
+  [/no longer active/i, 'The coupon code you entered is no longer active.'],
+  [/has expired/i, 'The coupon code you entered has expired.'],
+  [/usage limit/i, 'The coupon code you entered has reached its usage limit.'],
+  [/minimum order/i, 'This coupon requires a minimum order value to apply.'],
+  [/no longer exists/i, 'One of the items in your cart is no longer available.'],
+  [/out of stock/i, 'One of the items in your cart is currently out of stock.'],
+  [
+    /cash on delivery is currently unavailable/i,
+    'Cash on Delivery is currently unavailable. Please contact support.',
+  ],
+  [
+    /online payment is not available/i,
+    'Online payment is not available yet. Please use Cash on Delivery.',
+  ],
+  [/invalid payment method/i, 'The selected payment method is invalid.'],
+  [
+    /invalid quantity/i,
+    'There was a problem with your cart. Please review the items and try again.',
+  ],
+];
+
+function friendlyOrderError(raw: string): string {
+  const msg = typeof raw === 'string' ? raw : 'Unable to place order. Please try again.';
+  const matched = FRIENDLY_ERRORS.find(([re]) => re.test(msg));
+  return matched ? matched[1] : 'Unable to place order. Please try again.';
+}
+
 interface StoreSettings {
   currency: string;
   shipping_charge: number;
@@ -61,7 +92,7 @@ export default function CheckoutPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [_location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
 
   const shippingCharge = settings?.shipping_charge ?? 200;
@@ -204,7 +235,7 @@ export default function CheckoutPage() {
 
     if (rpcError) {
       console.error('Place order error:', rpcError);
-      setError(rpcError.message || 'Unable to place order. Please try again.');
+      setError(friendlyOrderError(rpcError.message || ''));
       setSubmitting(false);
       return;
     }
@@ -396,6 +427,7 @@ export default function CheckoutPage() {
                         <LocationPicker
                           address={address}
                           onAddressChange={setAddress}
+                          onCityChange={setCity}
                           onLocationChange={setLocation}
                         />
                         <input
@@ -510,7 +542,7 @@ export default function CheckoutPage() {
 
               <button
                 onClick={placeOrder}
-                disabled={submitting || loadingUser}
+                disabled={submitting || loadingUser || availableMethods.length === 0}
                 className="btn-primary w-full justify-center mt-6 py-4 disabled:opacity-50"
               >
                 {submitting ? 'Placing order...' : 'Place Order'}

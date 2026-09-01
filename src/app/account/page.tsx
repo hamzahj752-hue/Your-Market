@@ -7,6 +7,8 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
+import PasswordlessAuth from '@/components/auth/PasswordlessAuth';
+import AddressLocationPicker from '@/components/LocationPicker/AddressLocationPicker';
 
 interface Order {
   id: string;
@@ -37,36 +39,20 @@ interface Address {
   is_default: boolean;
 }
 
-const SAFE_USER_MESSAGES = new Set([
-  'Invalid login credentials',
-  'Email not confirmed',
-  'User already registered',
-  'Password should be at least 6 characters',
-  'For security purposes, you can only request this once after 60 seconds',
-  'Password reset link sent',
-]);
-
 function safeErrorMessage(error?: { message?: string } | null): string {
-  const raw = error?.message;
-  if (raw && SAFE_USER_MESSAGES.has(raw)) return raw;
-  return 'Something went wrong. Please try again.';
+  return error?.message || 'Something went wrong. Please try again.';
 }
 
 export default function AccountPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [showSignup, setShowSignup] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
+  const [phone, setPhone] = useState('');
   const [profileName, setProfileName] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
@@ -76,8 +62,6 @@ export default function AccountPage() {
   const [profileCity, setProfileCity] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ password: '', confirm: '' });
-  const [passwordSaving, setPasswordSaving] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -174,11 +158,11 @@ export default function AccountPage() {
         if (user) {
           setName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Your Market User');
           setEmail(user.email || '');
-          setProfilePhone(user.user_metadata?.phone || '');
+          setPhone(user.phone || '');
+          setProfilePhone(user.user_metadata?.phone || user.phone || '');
           setProfileAddress(user.user_metadata?.address || '');
           setProfileCity(user.user_metadata?.city || '');
           setAvatarUrl(user.user_metadata?.avatar_url || '');
-          setEmailVerified(!!user.email_confirmed_at);
           setLoggedIn(true);
 
           await loadOrders(user.id);
@@ -186,6 +170,7 @@ export default function AccountPage() {
         } else {
           setName('');
           setEmail('');
+          setPhone('');
           setLoggedIn(false);
           setOrders([]);
         }
@@ -206,7 +191,7 @@ export default function AccountPage() {
       if (user) {
         setName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Your Market User');
         setEmail(user.email || '');
-        setEmailVerified(!!user.email_confirmed_at);
+        setPhone(user.phone || '');
         setLoggedIn(true);
 
         await loadOrders(user.id);
@@ -214,7 +199,7 @@ export default function AccountPage() {
       } else {
         setName('');
         setEmail('');
-        setEmailVerified(false);
+        setPhone('');
         setOrders([]);
         setAddresses([]);
         setLoggedIn(false);
@@ -226,123 +211,7 @@ export default function AccountPage() {
     };
   }, []);
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      setAuthError('Please enter your email address first.');
-      return;
-    }
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/account/reset-password`,
-    });
-
-    if (error) {
-      console.error('SUPABASE PASSWORD RESET ERROR:', error);
-      setAuthError(safeErrorMessage(error));
-      setAuthLoading(false);
-      return;
-    }
-
-    setAuthError('Password reset link sent! Please check your email.');
-
-    setAuthLoading(false);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!email.trim() || !password.trim()) return;
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    if (error) {
-      console.error('SUPABASE AUTH ERROR:', error);
-      setAuthError(safeErrorMessage(error));
-      setAuthLoading(false);
-      return;
-    }
-
-    setName(
-      data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Your Market User'
-    );
-    setEmail(data.user.email || email);
-    setLoggedIn(true);
-    setPassword('');
-    setShowLogin(false);
-    setAuthLoading(false);
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!name.trim() || !email.trim() || !password.trim()) return;
-
-    setAuthLoading(true);
-    setAuthError('');
-
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: name.trim(),
-        },
-      },
-    });
-
-    if (error) {
-      console.error('SUPABASE AUTH ERROR:', error);
-      setAuthError(safeErrorMessage(error));
-      setAuthLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      setLoggedIn(true);
-      setShowSignup(false);
-    } else {
-      setAuthError('Account created. Please check your email to confirm your account.');
-      setShowSignup(false);
-    }
-
-    setPassword('');
-    setAuthLoading(false);
-  };
-
-  const handleResendVerification = async () => {
-    if (!email.trim()) {
-      setAuthError('No email address found.');
-      return;
-    }
-
-    setResendLoading(true);
-    setAuthError('');
-
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-    });
-
-    if (error) {
-      console.error('SUPABASE VERIFICATION ERROR:', error);
-      setAuthError(safeErrorMessage(error));
-      setResendLoading(false);
-      return;
-    }
-
-    setAuthError('Verification email sent! Please check your inbox.');
-
-    setResendLoading(false);
-  };
+  const handleAuthenticated = () => {};
 
   const openProfile = () => {
     setProfileName(name);
@@ -438,28 +307,6 @@ export default function AccountPage() {
       setAvatarUrl('');
       setSettingsMessage('Profile photo removed.');
     }
-  };
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSettingsError('');
-    setSettingsMessage('');
-    if (passwordForm.password.length < 6) {
-      setSettingsError('Password must be at least 6 characters.');
-      return;
-    }
-    if (passwordForm.password !== passwordForm.confirm) {
-      setSettingsError('Passwords do not match.');
-      return;
-    }
-    setPasswordSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: passwordForm.password });
-    if (error) setSettingsError(safeErrorMessage(error));
-    else {
-      setPasswordForm({ password: '', confirm: '' });
-      setSettingsMessage('Password changed successfully.');
-    }
-    setPasswordSaving(false);
   };
 
   const openAddressForm = (address?: Address) => {
@@ -587,8 +434,7 @@ export default function AccountPage() {
     setLoggedIn(false);
     setName('');
     setEmail('');
-    setPassword('');
-    setAuthError('');
+    setPhone('');
   };
 
   const totalSpent = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
@@ -617,7 +463,9 @@ export default function AccountPage() {
                   </h1>
 
                   <p className="text-sm text-muted-foreground mt-2">
-                    {loggedIn ? email : 'Login or create an account to manage your shopping.'}
+                    {loggedIn
+                      ? email || phone || 'Signed in'
+                      : 'Login or create an account to manage your shopping.'}
                   </p>
                 </div>
 
@@ -633,69 +481,16 @@ export default function AccountPage() {
                     </span>
                   </button>
                 ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowLogin(true)}
-                      className="btn-primary px-5 py-3"
-                    >
-                      Login
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowSignup(true)}
-                      className="px-5 py-3 rounded-xl border border-border font-700 text-sm hover:bg-muted transition-colors"
-                    >
-                      Sign Up
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuth(true)}
+                    className="btn-primary px-5 py-3"
+                  >
+                    Login
+                  </button>
                 )}
               </div>
             </div>
-
-            {!emailVerified && loggedIn && (
-              <section className="bg-card rounded-3xl card-shadow p-5 mb-6 border border-yellow-200">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center shrink-0">
-                    <Icon name="EnvelopeIcon" size={24} className="text-yellow-600" />
-                  </div>
-
-                  <div className="flex-1">
-                    <h2 className="font-800 text-lg">Verify your email</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      We sent a verification link to <strong>{email}</strong>. Please verify your
-                      email to secure your account.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleResendVerification}
-                    disabled={resendLoading}
-                    className="btn-primary px-5 py-3 whitespace-nowrap disabled:opacity-50"
-                  >
-                    {resendLoading ? 'Sending...' : 'Resend Email'}
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {emailVerified && loggedIn && (
-              <section className="bg-card rounded-3xl card-shadow p-4 mb-6 border border-green-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                    <Icon name="CheckCircleIcon" size={22} className="text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-800 text-green-700">Email verified</p>
-                    <p className="text-xs text-muted-foreground">
-                      Your email address has been successfully verified.
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
 
             {/* Stats */}
             <div className="grid grid-cols-3 border-t border-border">
@@ -727,24 +522,16 @@ export default function AccountPage() {
                 <h2 className="text-xl font-800 mb-2">Sign in to your account</h2>
 
                 <p className="text-sm text-muted-foreground mb-6">
-                  Access your profile, orders and saved shopping preferences.
+                  Sign in with your phone number or Google. No password needed.
                 </p>
 
                 <div className="flex justify-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowLogin(true)}
+                    onClick={() => setShowAuth(true)}
                     className="btn-primary px-6 py-3"
                   >
                     Login
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowSignup(true)}
-                    className="px-6 py-3 rounded-xl border border-border font-700 text-sm"
-                  >
-                    Create Account
                   </button>
                 </div>
               </div>
@@ -907,140 +694,12 @@ export default function AccountPage() {
         )}
       </main>
 
-      {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-800">Login</h2>
-
-              <button
-                type="button"
-                onClick={() => setShowLogin(false)}
-                aria-label="Close login"
-                className="p-2 rounded-full hover:bg-muted"
-              >
-                <Icon name="XMarkIcon" size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <input
-                type="email"
-                required
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  disabled={authLoading}
-                  className="text-sm font-700 text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {authLoading ? 'Sending reset email...' : 'Forgot Password?'}
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="btn-primary w-full justify-center py-3 disabled:opacity-50"
-              >
-                {authLoading ? 'Logging in...' : 'Login'}
-              </button>
-            </form>
-
-            <p className="text-xs text-center text-muted-foreground mt-5">
-              {authError ? (
-                <span
-                  className={`font-600 ${authError.startsWith('Password reset link sent') ? 'text-green-600' : 'text-red-500'}`}
-                >
-                  {authError}
-                </span>
-              ) : (
-                'Login with your Your Market account.'
-              )}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Signup Modal */}
-      {showSignup && (
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-800">Create Account</h2>
-
-              <button
-                type="button"
-                onClick={() => setShowSignup(false)}
-                aria-label="Close signup"
-                className="p-2 rounded-full hover:bg-muted"
-              >
-                <Icon name="XMarkIcon" size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSignup} className="space-y-4">
-              <input
-                type="text"
-                required
-                placeholder="Full name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <input
-                type="email"
-                required
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              <button type="submit" className="btn-primary w-full justify-center py-3">
-                Create Account
-              </button>
-            </form>
-
-            <p className="text-xs text-center text-muted-foreground mt-5">
-              Your account will be created securely with Supabase authentication.
-            </p>
-          </div>
-        </div>
+      {/* Passwordless Auth Modal (Phone OTP + Google) */}
+      {showAuth && (
+        <PasswordlessAuth
+          onClose={() => setShowAuth(false)}
+          onAuthenticated={handleAuthenticated}
+        />
       )}
 
       {/* Profile Modal */}
@@ -1228,35 +887,9 @@ export default function AccountPage() {
           <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
             <h2 className="text-xl md:text-2xl font-800">Account Security</h2>
             <p className="text-sm text-muted-foreground mt-1 mb-5">
-              Manage your password and sign-in security.
+              Your account uses passwordless sign-in. You sign in each time with your phone number
+              (SMS code) or your Google account — no password to remember or reset.
             </p>
-            <form onSubmit={handlePasswordChange} className="grid sm:grid-cols-2 gap-3 max-w-2xl">
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="New password"
-                value={passwordForm.password}
-                onChange={(e) => setPasswordForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              <input
-                type="password"
-                required
-                minLength={6}
-                placeholder="Confirm new password"
-                value={passwordForm.confirm}
-                onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              <button
-                type="submit"
-                disabled={passwordSaving}
-                className="btn-primary sm:col-span-2 justify-center py-3 disabled:opacity-50"
-              >
-                {passwordSaving ? 'Changing password...' : 'Change Password'}
-              </button>
-            </form>
             {(settingsError || settingsMessage) && (
               <p
                 className={`text-sm font-600 mt-4 ${settingsError ? 'text-red-500' : 'text-green-600'}`}
@@ -1368,9 +1001,9 @@ export default function AccountPage() {
       {/* Address Modal */}
       {showAddressForm && (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-800">
+          <div className="w-full max-w-[520px] sm:max-w-[540px] lg:max-w-[560px] bg-card rounded-3xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
+              <h2 className="text-xl font-800">
                 {editingAddress ? 'Edit Address' : 'Add Address'}
               </h2>
               <button
@@ -1382,7 +1015,10 @@ export default function AccountPage() {
                 <Icon name="XMarkIcon" size={20} />
               </button>
             </div>
-            <form onSubmit={handleAddressSave} className="space-y-4">
+            <form
+              onSubmit={handleAddressSave}
+              className="space-y-3.5 px-6 pb-0 overflow-y-auto flex-1 min-h-0"
+            >
               <div>
                 <label htmlFor="addr-label" className="block text-xs text-muted-foreground mb-1">
                   Label (e.g. Home, Work) <span className="opacity-60">optional</span>
@@ -1393,7 +1029,7 @@ export default function AccountPage() {
                   value={addressForm.label}
                   onChange={(e) => setAddressForm((f) => ({ ...f, label: e.target.value }))}
                   placeholder="Home"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-11"
                 />
               </div>
               <div>
@@ -1409,7 +1045,7 @@ export default function AccountPage() {
                     setAddressForm((f) => ({ ...f, recipient_name: e.target.value }))
                   }
                   placeholder="Full name"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-11"
                 />
               </div>
               <div>
@@ -1423,7 +1059,7 @@ export default function AccountPage() {
                   value={addressForm.phone}
                   onChange={(e) => setAddressForm((f) => ({ ...f, phone: e.target.value }))}
                   placeholder="Phone number"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-11"
                 />
               </div>
               <div>
@@ -1437,7 +1073,7 @@ export default function AccountPage() {
                   value={addressForm.address_line}
                   onChange={(e) => setAddressForm((f) => ({ ...f, address_line: e.target.value }))}
                   placeholder="Street address, area"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/20 resize-none h-[72px]"
                 />
               </div>
               <div>
@@ -1451,26 +1087,39 @@ export default function AccountPage() {
                   value={addressForm.city}
                   onChange={(e) => setAddressForm((f) => ({ ...f, city: e.target.value }))}
                   placeholder="City"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-11"
                 />
               </div>
+
+              <div className="pt-1">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Your location is only used to help fill your delivery address.
+                </p>
+                <AddressLocationPicker
+                  onStreetChange={(street) =>
+                    setAddressForm((f) => ({ ...f, address_line: street }))
+                  }
+                  onCityChange={(city) => setAddressForm((f) => ({ ...f, city }))}
+                />
+              </div>
+
               {addressError && <p className="text-sm text-red-500 font-600">{addressError}</p>}
               {addressMessage && (
                 <p className="text-sm text-green-600 font-600">{addressMessage}</p>
               )}
-              <div className="flex gap-3 pt-2">
+              <div className="py-4 border-t border-border flex gap-3 shrink-0 sticky bottom-0 bg-card">
                 <button
                   type="button"
                   onClick={handleAddressClose}
                   disabled={addressSaving}
-                  className="flex-1 py-3 rounded-xl bg-muted font-700 disabled:opacity-50"
+                  className="flex-1 h-11 rounded-xl bg-muted font-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={addressSaving}
-                  className="btn-primary flex-1 justify-center py-3 disabled:opacity-50"
+                  className="flex-1 h-11 rounded-xl bg-primary text-primary-foreground font-700 justify-center inline-flex items-center disabled:opacity-50"
                 >
                   {addressSaving ? 'Saving...' : 'Save Address'}
                 </button>

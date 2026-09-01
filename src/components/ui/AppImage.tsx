@@ -16,10 +16,34 @@ interface AppImageProps {
   fill?: boolean;
   sizes?: string;
   onClick?: () => void;
-  fallbackSrc?: string;
   loading?: 'lazy' | 'eager';
   unoptimized?: boolean;
   [key: string]: any;
+}
+
+function PlaceholderBlock() {
+  return (
+    <div
+      className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-muted/60 text-muted-foreground/40 select-none"
+      aria-hidden="true"
+    >
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+        <path d="M3.3 7 12 12l8.7-5" />
+        <path d="M12 22V12" />
+      </svg>
+      <span className="text-[10px] font-600 uppercase tracking-wider">No image</span>
+    </div>
+  );
 }
 
 const AppImage = memo(function AppImage({
@@ -35,28 +59,20 @@ const AppImage = memo(function AppImage({
   fill = false,
   sizes,
   onClick,
-  fallbackSrc = '/assets/images/no_image.png',
   loading = 'lazy',
   unoptimized = false,
   ...props
 }: AppImageProps) {
-  const [imageSrc, setImageSrc] = useState(src);
-  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isExternalUrl = useMemo(
-    () => typeof imageSrc === 'string' && imageSrc.startsWith('http'),
-    [imageSrc]
-  );
+  const isExternalUrl = useMemo(() => typeof src === 'string' && src.startsWith('http'), [src]);
   const resolvedUnoptimized = unoptimized || isExternalUrl;
 
   const handleError = useCallback(() => {
-    if (!hasError && imageSrc !== fallbackSrc) {
-      setImageSrc(fallbackSrc);
-      setHasError(true);
-    }
+    setHasError(true);
     setIsLoading(false);
-  }, [hasError, imageSrc, fallbackSrc]);
+  }, []);
 
   const handleLoad = useCallback(() => {
     setIsLoading(false);
@@ -65,14 +81,14 @@ const AppImage = memo(function AppImage({
 
   const imageClassName = useMemo(() => {
     const classes = [className];
-    if (isLoading) classes.push('bg-gray-200');
+    if (isLoading && !hasError) classes.push('bg-muted/40');
     if (onClick) classes.push('cursor-pointer hover:opacity-90 transition-opacity duration-200');
     return classes.filter(Boolean).join(' ');
-  }, [className, isLoading, onClick]);
+  }, [className, isLoading, hasError, onClick]);
 
   const imageProps = useMemo(() => {
     const baseProps: any = {
-      src: imageSrc,
+      src,
       alt,
       className: imageClassName,
       quality,
@@ -95,7 +111,7 @@ const AppImage = memo(function AppImage({
 
     return baseProps;
   }, [
-    imageSrc,
+    src,
     alt,
     imageClassName,
     quality,
@@ -109,9 +125,27 @@ const AppImage = memo(function AppImage({
     onClick,
   ]);
 
+  if (hasError) {
+    if (fill) {
+      return (
+        <div className="relative w-full h-full overflow-hidden bg-muted/40">
+          <PlaceholderBlock />
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`relative overflow-hidden bg-muted/40 ${className}`}
+        style={{ width: width || 400, height: height || 300 }}
+      >
+        <PlaceholderBlock />
+      </div>
+    );
+  }
+
   if (fill) {
     return (
-      <div className="relative" style={{ width: '100%', height: '100%' }}>
+      <div className="relative w-full h-full">
         <Image
           {...imageProps}
           fill

@@ -1,13 +1,29 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { Product } from '@/data/products';
 import { supabase } from '@/lib/supabase';
 
+export interface WishlistProduct {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  alt?: string;
+  category?: string;
+  rating?: number;
+  reviews?: number;
+  discount?: number;
+  badge?: string;
+  variant?: string;
+  brand?: string;
+  inStock?: boolean;
+}
+
 interface WishlistContextValue {
-  wishlist: Product[];
+  wishlist: WishlistProduct[];
   isInWishlist: (id: string) => boolean;
-  toggleWishlist: (product: Product) => void;
+  toggleWishlist: (product: WishlistProduct) => void;
   clearWishlist: () => void;
   syncMessage: string;
 }
@@ -17,7 +33,7 @@ const KEY = 'yourmarket-wishlist';
 // Requires a separately-created table: wishlist_items(user_id, product_id, product, created_at)
 const REMOTE_TABLE = 'wishlist_items';
 
-function readLocalWishlist(): Product[] {
+function readLocalWishlist(): WishlistProduct[] {
   try {
     const raw = localStorage.getItem(KEY);
     return raw ? JSON.parse(raw) : [];
@@ -27,7 +43,7 @@ function readLocalWishlist(): Product[] {
 }
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const [wishlist, setWishlist] = useState<Product[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistProduct[]>([]);
   const [ready, setReady] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [remoteAvailable, setRemoteAvailable] = useState(false);
@@ -51,8 +67,8 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const remoteProducts = (data || [])
-        .map((row) => row.product as Product | null)
-        .filter((product): product is Product => Boolean(product?.id));
+        .map((row) => row.product as WishlistProduct | null)
+        .filter((product): product is WishlistProduct => Boolean(product?.id));
       setWishlist(remoteProducts);
       setRemoteAvailable(true);
       setSyncMessage('Wishlist synced to your account.');
@@ -90,7 +106,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     () => ({
       wishlist,
       isInWishlist: (id: string) => wishlist.some((p) => p.id === id),
-      toggleWishlist: (product: Product) => {
+      toggleWishlist: (product: WishlistProduct) => {
         const exists = wishlist.some((p) => p.id === product.id);
         setWishlist((previous) =>
           exists ? previous.filter((p) => p.id !== product.id) : [...previous, product]

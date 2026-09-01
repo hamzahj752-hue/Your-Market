@@ -34,7 +34,7 @@ export default function ProductsPage() {
       setLoading(true);
       setLoadError('');
 
-      const { data, error } = await supabase.from('products').select('*');
+      const { data, error } = await supabase.from('products').select('*').eq('active', true);
 
       if (error) {
         console.error('Supabase product error:', error);
@@ -76,6 +76,46 @@ export default function ProductsPage() {
     if (search) setSearchQuery(search);
   }, []);
 
+  const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
+
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of allProducts) {
+      counts.set(p.category, (counts.get(p.category) || 0) + 1);
+    }
+    const list = [...counts.entries()]
+      .map(([name, count]) => ({ id: name, label: name, count }))
+      .sort((a, b) => b.count - a.count);
+    return [{ id: 'all', label: 'All Categories', count: allProducts.length }, ...list];
+  }, [allProducts]);
+
+  const priceRanges = useMemo(() => {
+    const prices = allProducts.map((p) => p.price).filter((n) => Number.isFinite(n));
+    if (prices.length === 0) return [];
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const ranges: { id: string; label: string }[] = [{ id: 'all', label: 'Any Price' }];
+    if (max <= min) {
+      ranges.push({ id: `${min}-${max}`, label: money(min) });
+      return ranges;
+    }
+    const step = max === min ? 0 : (max - min) / 4;
+    for (let i = 0; i < 4; i += 1) {
+      const lo = Math.round(min + i * step);
+      const hi = i === 3 ? max : Math.round(min + (i + 1) * step);
+      ranges.push({ id: `${lo}-${hi}`, label: `${money(lo)} – ${money(hi)}` });
+    }
+    return ranges;
+  }, [allProducts]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeCategory !== 'all') params.set('category', activeCategory);
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
+    const qs = params.toString();
+    window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+  }, [activeCategory, searchQuery]);
+
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
 
@@ -97,12 +137,7 @@ export default function ProductsPage() {
 
     if (activePriceRange !== 'all') {
       const [min, max] = activePriceRange.split('-').map(Number);
-
-      if (activePriceRange === '26500+') {
-        result = result.filter((p) => p.price >= 26500);
-      } else {
-        result = result.filter((p) => p.price >= min && p.price <= max);
-      }
+      result = result.filter((p) => p.price >= min && p.price <= max);
     }
 
     if (activeRating) {
@@ -205,9 +240,7 @@ export default function ProductsPage() {
                     onClick={() => setActivePriceRange('all')}
                     className="flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-600"
                   >
-                    {activePriceRange === '26500+'
-                      ? 'रू26,500+'
-                      : `रू${activePriceRange.replace('-', ' – रू')}`}
+                    {priceRanges.find((r) => r.id === activePriceRange)?.label || activePriceRange}
                     <Icon name="XMarkIcon" size={12} />
                   </button>
                 )}
@@ -240,6 +273,8 @@ export default function ProductsPage() {
                 activeCategory={activeCategory}
                 activePriceRange={activePriceRange}
                 activeRating={activeRating}
+                categories={categories}
+                priceRanges={priceRanges}
                 onCategoryChange={setActiveCategory}
                 onPriceChange={setActivePriceRange}
                 onRatingChange={setActiveRating}
@@ -291,6 +326,8 @@ export default function ProductsPage() {
                 activeCategory={activeCategory}
                 activePriceRange={activePriceRange}
                 activeRating={activeRating}
+                categories={categories}
+                priceRanges={priceRanges}
                 onCategoryChange={(cat) => {
                   setActiveCategory(cat);
                   setFilterOpen(false);

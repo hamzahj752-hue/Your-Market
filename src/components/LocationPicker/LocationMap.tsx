@@ -7,9 +7,10 @@ import 'leaflet/dist/leaflet.css';
 interface LocationMapProps {
   location: { lat: number; lng: number } | null;
   onLocationChange: (location: { lat: number; lng: number }) => void;
+  className?: string;
 }
 
-export default function LocationMap({ location, onLocationChange }: LocationMapProps) {
+export default function LocationMap({ location, onLocationChange, className }: LocationMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -53,6 +54,7 @@ export default function LocationMap({ location, onLocationChange }: LocationMapP
       map.remove();
       mapInstance.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -70,14 +72,14 @@ export default function LocationMap({ location, onLocationChange }: LocationMapP
   }, [location]);
 
   return (
-    <div className="relative">
-      <div ref={mapRef} className="w-full h-56 rounded-xl overflow-hidden border border-border" />
-
-      <div className="absolute bottom-3 left-3 right-3 z-[1000] pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-foreground shadow-md">
-          📍 Click on the map to select your delivery location
-        </div>
-      </div>
+    <div>
+      <div
+        ref={mapRef}
+        className={`w-full h-[170px] sm:h-[200px] rounded-2xl overflow-hidden border border-border ${className || ''}`}
+      />
+      <p className="text-[11px] text-muted-foreground mt-1.5">
+        Tap the map to adjust the delivery location.
+      </p>
     </div>
   );
 }

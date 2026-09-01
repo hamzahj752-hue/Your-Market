@@ -2,34 +2,36 @@ import { MetadataRoute } from 'next';
 import { supabase } from '@/lib/supabase';
 
 const baseUrl =
-  (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '') || 'http://localhost:3000';
+  (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/+$/, '') ||
+  'https://your-market-nu.vercel.app';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const today = new Date();
   const entries: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: 'daily',
       priority: 1.0,
     },
     {
       url: `${baseUrl}/products`,
-      lastModified: new Date(),
+      lastModified: today,
       changeFrequency: 'daily',
       priority: 0.8,
     },
   ];
 
-  let productUrls: string[] = [];
+  let productUrls: { url: string; modified: string | null }[] = [];
   let categoryUrls: string[] = [];
 
   try {
     const [productsRes, categoriesRes] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, created_at')
+        .select('id')
         .eq('active', true)
-        .order('created_at', { ascending: false })
+        .order('name', { ascending: true })
         .limit(2000),
       supabase
         .from('categories')
@@ -39,7 +41,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]);
 
     if (!productsRes.error && productsRes.data) {
-      productUrls = productsRes.data.map((p) => `${baseUrl}/products/${p.id}`);
+      productUrls = productsRes.data.map((p) => ({
+        url: `${baseUrl}/products/${p.id}`,
+        modified: null,
+      }));
     }
     if (!categoriesRes.error && categoriesRes.data) {
       categoryUrls = categoriesRes.data
@@ -53,12 +58,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     categoryUrls = [];
   }
 
-  for (const url of [...productUrls, ...categoryUrls]) {
+  for (const { url, modified } of productUrls) {
     entries.push({
       url,
-      lastModified: new Date(),
+      lastModified: modified || today,
       changeFrequency: 'weekly',
       priority: 0.7,
+    });
+  }
+
+  for (const url of categoryUrls) {
+    entries.push({
+      url,
+      lastModified: today,
+      changeFrequency: 'weekly',
+      priority: 0.6,
     });
   }
 

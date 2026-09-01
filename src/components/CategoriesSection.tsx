@@ -3,98 +3,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
+import Icon from '@/components/ui/AppIcon';
 import { fetchHomepageCategories, BriefCategory } from '@/lib/homepageCms';
 
-const defaultCategories = [
-  {
-    id: 'electronics',
-    name: 'Electronics',
-    count: '2.4M+ products',
-    emoji: 'ðŸ“±',
-    image: 'https://img.rocket.new/generatedImages/rocket_gen_img_1e9299168-1784116839613.png',
-    alt: 'Electronic devices laptops phones tablets on white surface, bright studio lighting',
-    href: '/products?category=Electronics',
-    span: 'col-span-2 row-span-1',
-    accent: 'from-blue-600/80 to-primary/80',
-  },
-  {
-    id: 'fashion',
-    name: 'Fashion',
-    count: '5.1M+ products',
-    emoji: 'ðŸ‘—',
-    image: 'https://img.rocket.new/generatedImages/rocket_gen_img_10d410c24-1772570122974.png',
-    alt: 'Fashion clothing store with colorful garments on hangers, bright airy boutique',
-    href: '/products?category=Fashion',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-pink-600/80 to-purple-700/80',
-  },
-  {
-    id: 'home',
-    name: 'Home & Kitchen',
-    count: '1.8M+ products',
-    emoji: 'ðŸ ',
-    image: 'https://images.unsplash.com/photo-1722603930481-6b17484a16fe',
-    alt: 'Modern kitchen interior with clean white counters and natural wood accents, bright daylight',
-    href: '/products?category=Home',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-amber-600/80 to-orange-700/80',
-  },
-  {
-    id: 'beauty',
-    name: 'Beauty',
-    count: '890K+ products',
-    emoji: 'âœ¨',
-    image: 'https://images.unsplash.com/photo-1643123158858-eac2aabaa1ec',
-    alt: 'Beauty cosmetics products flatlay on pink background, soft studio lighting',
-    href: '/products?category=Beauty',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-rose-500/80 to-pink-700/80',
-  },
-  {
-    id: 'sports',
-    name: 'Sports',
-    count: '1.2M+ products',
-    emoji: 'âš½',
-    image: 'https://img.rocket.new/generatedImages/rocket_gen_img_1f7e02ef8-1772296135925.png',
-    alt: 'Sports equipment gym weights running shoes on wooden floor, natural light',
-    href: '/products?category=Sports',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-green-600/80 to-teal-700/80',
-  },
-  {
-    id: 'books',
-    name: 'Books',
-    count: '3.5M+ products',
-    emoji: 'ðŸ“š',
-    image: 'https://img.rocket.new/generatedImages/rocket_gen_img_1197d933b-1772841006762.png',
-    alt: 'Stack of colorful books on wooden shelf in bright library, warm ambient lighting',
-    href: '/products?category=Books',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-yellow-600/80 to-amber-700/80',
-  },
-  {
-    id: 'toys',
-    name: 'Toys & Games',
-    count: '760K+ products',
-    emoji: 'ðŸŽ®',
-    image: 'https://img.rocket.new/generatedImages/rocket_gen_img_124dca8a4-1767193843888.png',
-    alt: 'Colorful toys and board games on bright white table, playful children room',
-    href: '/products?category=Toys',
-    span: 'col-span-1 row-span-1',
-    accent: 'from-violet-600/80 to-purple-800/80',
-  },
-  {
-    id: 'grocery',
-    name: 'Grocery & Fresh',
-    count: '450K+ products',
-    emoji: 'ðŸ›’',
-    image: 'https://images.unsplash.com/photo-1697038769469-4cc8caddb8c4',
-    alt: 'Fresh vegetables and fruits in grocery store, vibrant colors bright market lighting',
-    href: '/products?category=Grocery',
-    span: 'col-span-4 row-span-1',
-    accent: 'from-emerald-600/80 to-green-800/80',
-  },
+// Neutral fallback categories — no fabricated product counts.
+const fallbackCategories: Pick<BriefCategory, 'id' | 'name' | 'image'>[] = [
+  { id: 'electronics', name: 'Electronics', image: null },
+  { id: 'fashion', name: 'Fashion', image: null },
+  { id: 'home', name: 'Home & Kitchen', image: null },
+  { id: 'beauty', name: 'Beauty', image: null },
+  { id: 'sports', name: 'Sports', image: null },
+  { id: 'books', name: 'Books', image: null },
+  { id: 'toys', name: 'Toys & Games', image: null },
+  { id: 'grocery', name: 'Grocery & Fresh', image: null },
 ];
+
+const accentFor = (name: string) => {
+  const map: Record<string, string> = {
+    Electronics: 'from-blue-600/80 to-primary/80',
+    Fashion: 'from-pink-600/80 to-purple-700/80',
+    'Home & Kitchen': 'from-amber-600/80 to-orange-700/80',
+    Beauty: 'from-rose-500/80 to-pink-700/80',
+    Sports: 'from-green-600/80 to-teal-700/80',
+    Books: 'from-yellow-600/80 to-amber-700/80',
+    'Toys & Games': 'from-violet-600/80 to-purple-800/80',
+    'Grocery & Fresh': 'from-emerald-600/80 to-green-800/80',
+  };
+  return map[name] || 'from-primary/70 to-blue-600/70';
+};
 
 export default function CategoriesSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -124,7 +60,7 @@ export default function CategoriesSection() {
             setTimeout(() => {
               el.classList.add('animate-fade-up');
               el.style.opacity = '1';
-            }, idx * 80);
+            }, idx * 60);
             observer.unobserve(el);
           }
         });
@@ -136,13 +72,16 @@ export default function CategoriesSection() {
       observer.observe(card);
     });
     return () => observer.disconnect();
-  }, []);
+  }, [catItems.length]);
+
+  const items: BriefCategory[] =
+    catItems.length > 0 ? catItems : (fallbackCategories as BriefCategory[]);
 
   return (
     <section className="section-pad bg-white" ref={sectionRef} aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Header */}
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex items-end justify-between mb-8">
           <div>
             <span className="text-accent font-700 text-sm uppercase tracking-widest mb-2 block">
               Browse
@@ -159,123 +98,80 @@ export default function CategoriesSection() {
             className="hidden sm:flex items-center gap-1 text-primary font-600 text-sm hover:gap-2 transition-all"
           >
             View all
-            <span>â†’</span>
+            <Icon name="ArrowRightIcon" size={14} />
           </Link>
         </div>
 
-        {/* Bento Grid */}
-        {/* BENTO AUDIT:
-           Row 1: [col-1-2: Electronics cs-2] [col-3: Fashion cs-1] [col-4: Home cs-1]
-           Row 2: [col-1: Beauty cs-1] [col-2: Sports cs-1] [col-3: Books cs-1] [col-4: Toys cs-1]
-           Row 3: [col-1-4: Grocery cs-4]
-           Placed 8/8
-          */}
-        {catItems.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-            {catItems.map((c, i) => (
-              <CmsCategoryCard key={c.id} cat={c} index={i} />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-            {/* Electronics â€” col-span-2 */}
-            <div data-idx="0" className="cat-card col-span-2 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[0]} heightClass="h-44 md:h-52" />
-            </div>
-            {/* Fashion */}
-            <div data-idx="1" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[1]} heightClass="h-44 md:h-52" />
-            </div>
-            {/* Home & Kitchen */}
-            <div data-idx="2" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[2]} heightClass="h-44 md:h-52" />
-            </div>
-            {/* Beauty */}
-            <div data-idx="3" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[3]} heightClass="h-36 md:h-44" />
-            </div>
-            {/* Sports */}
-            <div data-idx="4" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[4]} heightClass="h-36 md:h-44" />
-            </div>
-            {/* Books */}
-            <div data-idx="5" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[5]} heightClass="h-36 md:h-44" />
-            </div>
-            {/* Toys */}
-            <div data-idx="6" className="cat-card col-span-1 row-span-1 animate-on-scroll">
-              <CategoryCard cat={defaultCategories[6]} heightClass="h-36 md:h-44" />
-            </div>
-            {/* Grocery â€” col-span-4 */}
-            <div
-              data-idx="7"
-              className="cat-card col-span-2 sm:col-span-4 row-span-1 animate-on-scroll"
-            >
-              <CategoryCard cat={defaultCategories[7]} heightClass="h-32 md:h-40" wide />
-            </div>
-          </div>
-        )}
+        {/* Responsive grid: 2 cols on phones, 4 on desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          {items.map((c, i) => {
+            const isFirst = i === 0;
+            const isLast = i === items.length - 1;
+
+            let span = 'col-span-1';
+            let height = 'h-36 sm:h-44';
+            if (isFirst) {
+              span = 'col-span-2 sm:col-span-2';
+              height = 'h-44 sm:h-52';
+            } else if (isLast) {
+              span = 'col-span-2 sm:col-span-4';
+              height = 'h-36 sm:h-40';
+            }
+
+            return (
+              <div
+                key={c.id || `${c.name}-${i}`}
+                data-idx={i}
+                className={`cat-card ${span} animate-on-scroll`}
+              >
+                <Link
+                  href={`/products?category=${encodeURIComponent(c.name)}`}
+                  className="block h-full"
+                >
+                  <div
+                    className={`relative ${height} rounded-2xl overflow-hidden category-card-hover cursor-pointer group bg-primary/70`}
+                  >
+                    {c.image ? (
+                      <AppImage
+                        src={c.image}
+                        alt={c.name}
+                        fill
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                        className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className={`absolute inset-0 bg-gradient-to-br ${accentFor(c.name)}`} />
+                    )}
+
+                    {/* Consistent readable overlay */}
+                    <div className="absolute inset-0 from-black/55 to-transparent bg-gradient-to-t" />
+
+                    <div className="absolute inset-0 p-4 flex flex-col justify-end">
+                      <h3 className="text-white font-800 text-base md:text-lg leading-tight">
+                        {c.name}
+                      </h3>
+                      <p className="text-white/75 text-xs font-500 mt-0.5 inline-flex items-center gap-1">
+                        Shop now
+                        <Icon name="ArrowRightIcon" size={12} />
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mobile view all */}
+        <div className="mt-6 flex justify-center sm:hidden">
+          <Link href="/products" className="w-full max-w-xs">
+            <button className="btn-outline w-full justify-center">
+              View All Categories
+              <Icon name="ArrowRightIcon" size={16} />
+            </button>
+          </Link>
+        </div>
       </div>
     </section>
-  );
-}
-
-function CategoryCard({
-  cat,
-  heightClass,
-  wide = false,
-}: {
-  cat: (typeof defaultCategories)[0];
-  heightClass: string;
-  wide?: boolean;
-}) {
-  return (
-    <Link href={cat.href} className="block h-full">
-      <div
-        className={`relative ${heightClass} rounded-2xl overflow-hidden category-card-hover cursor-pointer group`}
-      >
-        <AppImage
-          src={cat.image}
-          alt={cat.alt}
-          fill
-          sizes={wide ? '100vw' : '(max-width: 640px) 50vw, 25vw'}
-          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-        />
-
-        <div className={`absolute inset-0 bg-gradient-to-br ${cat.accent}`} />
-        <div className="absolute inset-0 from-black/50 to-transparent bg-gradient-to-t" />
-        <div className="absolute inset-0 p-4 flex flex-col justify-end">
-          <span className="text-2xl mb-1">{cat.emoji}</span>
-          <h3 className="text-white font-800 text-base md:text-lg leading-tight">{cat.name}</h3>
-          <p className="text-white/70 text-xs font-500 mt-0.5">{cat.count}</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function CmsCategoryCard({ cat, index }: { cat: BriefCategory; index: number }) {
-  const image =
-    cat.image || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(cat.name);
-  return (
-    <Link
-      href={`/products?category=${encodeURIComponent(cat.name)}`}
-      className="block h-full"
-      style={{ gridColumn: index === 0 ? 'span 2' : undefined }}
-    >
-      <div className="relative h-44 md:h-52 rounded-2xl overflow-hidden category-card-hover cursor-pointer group">
-        <AppImage
-          src={image}
-          alt={cat.name}
-          fill
-          sizes="(max-width: 640px) 50vw, 25vw"
-          className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-        <div className="absolute inset-0 p-4 flex flex-col justify-end">
-          <h3 className="text-white font-800 text-base md:text-lg leading-tight">{cat.name}</h3>
-        </div>
-      </div>
-    </Link>
   );
 }
