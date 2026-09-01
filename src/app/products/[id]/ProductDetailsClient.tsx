@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AppImage from '@/components/ui/AppImage';
@@ -91,6 +91,15 @@ export default function ProductDetailsClient({ id }: { id: string }) {
   const avgRating = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null;
+
+  const allImages = useMemo(() => {
+    const imgs: string[] = [];
+    if (product?.image) imgs.push(product.image);
+    for (const url of gallery) {
+      if (url && !imgs.includes(url)) imgs.push(url);
+    }
+    return imgs;
+  }, [product?.image, gallery]);
 
   useEffect(() => {
     async function loadProduct() {
@@ -432,20 +441,21 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
           <div className="grid lg:grid-cols-2 gap-8 bg-card rounded-3xl p-5 md:p-8 card-shadow">
             <div>
-              <div className="relative min-h-[360px] md:min-h-[520px] rounded-2xl overflow-hidden bg-muted/30">
+              <div className="relative min-h-[320px] sm:min-h-[360px] md:min-h-[480px] lg:min-h-[520px] rounded-2xl overflow-hidden bg-muted/30">
                 <AppImage
-                  src={[product.image, ...gallery][activeImage] || product.image}
+                  src={allImages[activeImage] || allImages[0] || product.image}
                   alt={product.alt}
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
+                  className="object-contain"
+                  objectFit="contain"
                   priority
                 />
               </div>
 
-              {gallery.length > 0 && (
+              {allImages.length > 1 && (
                 <div className="flex gap-2.5 mt-3 overflow-x-auto scrollbar-hide pb-1">
-                  {[product.image, ...gallery].map((img, idx) => (
+                  {allImages.map((img, idx) => (
                     <button
                       key={`${idx}-${img}`}
                       type="button"

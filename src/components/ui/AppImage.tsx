@@ -18,6 +18,7 @@ interface AppImageProps {
   onClick?: () => void;
   loading?: 'lazy' | 'eager';
   unoptimized?: boolean;
+  objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   [key: string]: any;
 }
 
@@ -61,6 +62,7 @@ const AppImage = memo(function AppImage({
   onClick,
   loading = 'lazy',
   unoptimized = false,
+  objectFit = 'cover',
   ...props
 }: AppImageProps) {
   const [hasError, setHasError] = useState(false);
@@ -128,7 +130,7 @@ const AppImage = memo(function AppImage({
   if (hasError) {
     if (fill) {
       return (
-        <div className="relative w-full h-full overflow-hidden bg-muted/40">
+        <div className="absolute inset-0 overflow-hidden bg-muted/40">
           <PlaceholderBlock />
         </div>
       );
@@ -143,14 +145,64 @@ const AppImage = memo(function AppImage({
     );
   }
 
+  // External URLs (e.g. Supabase Storage public objects, Unsplash, Pexels) are
+  // rendered through a plain <img> instead of next/image. The app already opts
+  // out of the Next image optimizer globally (images.unoptimized: true), so
+  // next/image provides no optimization/security benefit here — but it DOES add
+  // production-only remote-source validation on top that can incorrectly fail
+  // CMS/Supabase URLs and trigger the error fallback. A plain <img> fetches the
+  // exact public URL directly, preserving object-fit, alt, loading and the
+  // on-error fallback while remaining just as secure.
+  if (isExternalUrl && !hasError) {
+    const imgStyle: React.CSSProperties = { objectFit };
+    const imgClassName = `${imageClassName} ${
+      isLoading ? 'opacity-0' : 'opacity-100'
+    } transition-opacity duration-200`;
+
+    if (fill) {
+      return (
+        <div className="absolute inset-0 overflow-hidden">
+          <img
+            src={src}
+            alt={alt}
+            className={`w-full h-full ${imgClassName}`}
+            style={imgStyle}
+            loading={priority ? 'eager' : loading}
+            onLoad={handleLoad}
+            onError={handleError}
+            onClick={onClick}
+            {...props}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={src}
+        alt={alt}
+        width={width || 400}
+        height={height || 300}
+        className={imgClassName}
+        style={imgStyle}
+        sizes={sizes}
+        loading={priority ? 'eager' : loading}
+        onLoad={handleLoad}
+        onError={handleError}
+        onClick={onClick}
+        {...props}
+      />
+    );
+  }
+
   if (fill) {
     return (
-      <div className="relative w-full h-full">
+      <div className="absolute inset-0">
         <Image
           {...imageProps}
           fill
           sizes={sizes || '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'}
-          style={{ objectFit: 'cover' }}
+          style={{ objectFit }}
           {...props}
         />
       </div>
