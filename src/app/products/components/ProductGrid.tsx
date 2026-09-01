@@ -18,10 +18,17 @@ export interface Product {
   badge?: string;
   variant?: string;
   brand: string;
+  sku?: string;
   inStock: boolean;
 }
 
-export default function ProductGrid({ products }: { products: Product[] }) {
+export default function ProductGrid({
+  products,
+  onClear,
+}: {
+  products: Product[];
+  onClear?: () => void;
+}) {
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center px-4">
@@ -30,6 +37,14 @@ export default function ProductGrid({ products }: { products: Product[] }) {
         <p className="text-muted-foreground text-sm max-w-xs">
           Try adjusting your filters or search query.
         </p>
+        {onClear && (
+          <button
+            onClick={onClear}
+            className="mt-5 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-700 text-sm hover:bg-blue-600 transition-colors"
+          >
+            Clear search &amp; filters
+          </button>
+        )}
       </div>
     );
   }

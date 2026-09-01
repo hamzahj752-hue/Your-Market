@@ -76,24 +76,28 @@ export default function HeroSection() {
                 className="object-cover"
                 priority={true}
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/25 to-transparent" />
               <div className="relative z-10 h-[300px] sm:h-[340px] md:h-[380px] lg:h-[420px] flex flex-col justify-center max-w-xl px-6 sm:px-10 md:px-14">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-800 text-white leading-tight mb-3">
-                  {banner.headline || 'Your Market'}
-                </h2>
+                {banner.headline && (
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-800 text-white leading-tight mb-3">
+                    {banner.headline}
+                  </h2>
+                )}
                 {banner.sub && (
                   <p className="text-white/85 text-sm md:text-base mb-5 max-w-xl line-clamp-3">
                     {banner.sub}
                   </p>
                 )}
-                <div>
-                  <Link href={banner.href}>
-                    <button className="btn-accent text-sm">
-                      {banner.cta || 'Shop Now'}
-                      <Icon name="ArrowRightIcon" size={15} />
-                    </button>
-                  </Link>
-                </div>
+                {banner.cta && (
+                  <div>
+                    <Link href={banner.href}>
+                      <button className="btn-accent text-sm">
+                        {banner.cta}
+                        <Icon name="ArrowRightIcon" size={15} />
+                      </button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </>
           ) : (

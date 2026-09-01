@@ -43,22 +43,26 @@ export default function ProductsPage() {
         return;
       }
 
-      const mappedProducts: Product[] = (data ?? []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        price: Number(p.price),
-        originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
-        image: p.image,
-        alt: p.alt,
-        category: p.category,
-        rating: Number(p.rating),
-        reviews: Number(p.reviews),
-        discount: p.discount != null ? Number(p.discount) : undefined,
-        badge: p.badge ?? undefined,
-        variant: p.variant ?? undefined,
-        brand: p.brand,
-        inStock: Boolean(p.in_stock),
-      }));
+      const mappedProducts: Product[] = (data ?? []).map((p) => {
+        const toStr = (v: unknown) => (v ? String(v) : '');
+        return {
+          id: p.id,
+          name: toStr(p.name),
+          price: Number(p.price),
+          originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
+          image: toStr(p.image),
+          alt: toStr(p.alt),
+          category: toStr(p.category),
+          rating: Number(p.rating),
+          reviews: Number(p.reviews),
+          discount: p.discount != null ? Number(p.discount) : undefined,
+          badge: p.badge ? String(p.badge) : undefined,
+          variant: p.variant ? String(p.variant) : undefined,
+          brand: toStr(p.brand),
+          sku: p.sku ? String(p.sku) : undefined,
+          inStock: Boolean(p.in_stock),
+        };
+      });
 
       setAllProducts(mappedProducts);
       setLoading(false);
@@ -66,6 +70,51 @@ export default function ProductsPage() {
 
     loadProducts();
   }, []);
+
+  const handleRetry = () => {
+    setActiveCategory('all');
+    setActivePriceRange('all');
+    setActiveRating('');
+    setSortBy('featured');
+    setSearchQuery('');
+    setLoadError('');
+    setLoading(true);
+
+    supabase
+      .from('products')
+      .select('*')
+      .eq('active', true)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Supabase product error:', error);
+          setLoadError('Unable to load products. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        const toStr = (v: unknown) => (v ? String(v) : '');
+        const mapped: Product[] = (data ?? []).map((p) => ({
+          id: p.id,
+          name: toStr(p.name),
+          price: Number(p.price),
+          originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
+          image: toStr(p.image),
+          alt: toStr(p.alt),
+          category: toStr(p.category),
+          rating: Number(p.rating),
+          reviews: Number(p.reviews),
+          discount: p.discount != null ? Number(p.discount) : undefined,
+          badge: p.badge ? String(p.badge) : undefined,
+          variant: p.variant ? String(p.variant) : undefined,
+          brand: toStr(p.brand),
+          sku: p.sku ? String(p.sku) : undefined,
+          inStock: Boolean(p.in_stock),
+        }));
+
+        setAllProducts(mapped);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -125,14 +174,12 @@ export default function ProductsPage() {
 
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
+      const haystack = (p: Product) =>
+        `${p.name}\u0000${p.brand}\u0000${p.category}\u0000${p.variant ?? ''}\u0000${
+          p.sku ?? ''
+        }`.toLowerCase();
 
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.brand.toLowerCase().includes(query) ||
-          p.category.toLowerCase().includes(query) ||
-          p.variant?.toLowerCase().includes(query)
-      );
+      result = result.filter((p) => haystack(p).includes(query));
     }
 
     if (activePriceRange !== 'all') {
@@ -164,6 +211,13 @@ export default function ProductsPage() {
     setActivePriceRange('all');
     setActiveRating('');
     setSortBy('featured');
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setActiveCategory('all');
+    setActivePriceRange('all');
+    setActiveRating('');
   };
 
   return (
@@ -293,9 +347,15 @@ export default function ProductsPage() {
                   <Icon name="ExclamationTriangleIcon" size={48} className="text-red-500/60 mb-4" />
                   <h3 className="text-xl font-700 text-foreground mb-2">Something went wrong</h3>
                   <p className="text-muted-foreground text-sm">{loadError}</p>
+                  <button
+                    onClick={handleRetry}
+                    className="mt-5 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-700 text-sm hover:bg-blue-600 transition-colors"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : (
-                <ProductGrid products={filteredProducts} />
+                <ProductGrid products={filteredProducts} onClear={handleClearSearch} />
               )}
             </div>
           </div>
