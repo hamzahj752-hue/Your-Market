@@ -694,7 +694,7 @@ export default function AccountPage() {
         )}
       </main>
 
-      {/* Passwordless Auth Modal (Phone OTP + Google) */}
+      {/* Google Auth Modal */}
       {showAuth && (
         <PasswordlessAuth
           onClose={() => setShowAuth(false)}
