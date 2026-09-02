@@ -597,6 +597,29 @@ export default function AccountPage() {
               </div>
             </Link>
           </section>
+
+          {/* Send Product Banner */}
+          {loggedIn && (
+            <section className="mb-8">
+              <Link
+                href="/account/send-product"
+                className="bg-card rounded-3xl card-shadow p-5 md:p-7 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Icon name="PaperAirplaneIcon" size={26} className="text-primary" />
+                </div>
+
+                <div className="flex-1">
+                  <p className="text-lg font-800">Send Your Product</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Have something to sell? Submit your product details to YourMarket.
+                  </p>
+                </div>
+
+                <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
+              </Link>
+            </section>
+          )}
         </div>
 
         {loggedIn && (
