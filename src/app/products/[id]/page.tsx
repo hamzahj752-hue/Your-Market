@@ -24,6 +24,7 @@ interface ProductRow {
   in_stock?: boolean | null;
   currency?: string | null;
   category?: string | null;
+  video_url?: string | null;
 }
 
 /**

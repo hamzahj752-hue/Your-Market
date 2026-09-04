@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getSafeInternalPath } from '@/lib/auth';
 
 function CallbackHandler() {
   const router = useRouter();
@@ -33,7 +34,7 @@ function CallbackHandler() {
         }
       }
 
-      const target = next && next.startsWith('/') ? next : '/account';
+      const target = getSafeInternalPath(next);
       router.replace(target);
       router.refresh();
     };

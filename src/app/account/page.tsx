@@ -6,9 +6,12 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/ui/AppIcon';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import PasswordlessAuth from '@/components/auth/PasswordlessAuth';
 import AddressLocationPicker from '@/components/LocationPicker/AddressLocationPicker';
+import NepalPhoneInput from '@/components/NepalPhoneInput';
+import { normalizeNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
 
 interface Order {
   id: string;
@@ -20,12 +23,6 @@ interface Order {
   paymentStatus?: string;
   items?: any[];
   itemCount?: number;
-  customer?: {
-    address?: string;
-    city?: string;
-    name?: string;
-    phone?: string;
-  };
 }
 
 interface Address {
@@ -44,19 +41,18 @@ function safeErrorMessage(error?: { message?: string } | null): string {
 }
 
 export default function AccountPage() {
+  const { user, loading: authLoading, loggedIn, profile, logout } = useAuth();
+
   const [orders, setOrders] = useState<Order[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(true);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [profileName, setProfileName] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [profileError, setProfileError] = useState('');
+  const [profilePhoneError, setProfilePhoneError] = useState('');
   const [profilePhone, setProfilePhone] = useState('');
   const [profileAddress, setProfileAddress] = useState('');
   const [profileCity, setProfileCity] = useState('');
@@ -77,6 +73,7 @@ export default function AccountPage() {
   const [addressSaving, setAddressSaving] = useState(false);
   const [addressMessage, setAddressMessage] = useState('');
   const [addressError, setAddressError] = useState('');
+  const [addressPhoneError, setAddressPhoneError] = useState('');
 
   const loadOrders = async (userId: string) => {
     setOrdersLoading(true);
@@ -121,12 +118,6 @@ export default function AccountPage() {
       paymentStatus: order.payment_status,
       items: order.items || [],
       itemCount: itemCountMap[order.id],
-      customer: {
-        name: order.customer_name,
-        phone: order.phone,
-        address: order.address,
-        city: order.city,
-      },
     }));
 
     setOrders(mappedOrders);
@@ -150,80 +141,44 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
-    const loadAccount = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
+    if (authLoading) return;
 
-        if (user) {
-          setName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Your Market User');
-          setEmail(user.email || '');
-          setPhone(user.phone || '');
-          setProfilePhone(user.user_metadata?.phone || user.phone || '');
-          setProfileAddress(user.user_metadata?.address || '');
-          setProfileCity(user.user_metadata?.city || '');
-          setAvatarUrl(user.user_metadata?.avatar_url || '');
-          setLoggedIn(true);
+    if (user) {
+      setProfileName(profile.name);
+      setProfilePhone(profile.phone ? profile.phone.replace(/^\+?977/, '') : '');
+      setProfileCity(user.user_metadata?.city || '');
+      setAvatarUrl(profile.avatarUrl);
+      loadOrders(user.id);
+      loadAddresses(user.id);
+    } else {
+      setOrders([]);
+      setAddresses([]);
+    }
+  }, [authLoading, user]);
 
-          await loadOrders(user.id);
-          await loadAddresses(user.id);
-        } else {
-          setName('');
-          setEmail('');
-          setPhone('');
-          setLoggedIn(false);
-          setOrders([]);
-        }
-      } catch (error) {
-        console.error('Account loading error:', error);
-        setOrders([]);
-        setLoggedIn(false);
-      }
-    };
-
-    loadAccount();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const user = session?.user;
-
-      if (user) {
-        setName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Your Market User');
-        setEmail(user.email || '');
-        setPhone(user.phone || '');
-        setLoggedIn(true);
-
-        await loadOrders(user.id);
-        await loadAddresses(user.id);
-      } else {
-        setName('');
-        setEmail('');
-        setPhone('');
-        setOrders([]);
-        setAddresses([]);
-        setLoggedIn(false);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const handleAuthenticated = () => {};
+  useEffect(() => {
+    if (user) {
+      setProfileName(profile.name);
+      setAvatarUrl(profile.avatarUrl);
+    }
+  }, [profile.name, profile.avatarUrl, user]);
 
   const openProfile = () => {
-    setProfileName(name);
+    setProfileName(profile.name);
+    setProfilePhone(profile.phone ? profile.phone.replace(/^\+?977/, '') : '');
+    setProfileAddress(user?.user_metadata?.address || '');
+    setProfileCity(user?.user_metadata?.city || '');
     setProfileMessage('');
     setProfileError('');
+    setProfilePhoneError('');
     setShowProfile(true);
   };
 
   const handleProfileCancel = () => {
-    setProfileName(name);
+    setProfileName(profile.name);
     setProfileMessage('');
     setProfileError('');
+    setProfilePhoneError('');
     setShowProfile(false);
   };
 
@@ -231,20 +186,27 @@ export default function AccountPage() {
     e.preventDefault();
 
     const updatedName = profileName.trim();
-
     if (!updatedName) {
       setProfileError('Please enter your full name.');
+      return;
+    }
+
+    const phoneCanonical = toCanonicalNepalMobile(profilePhone);
+    if (!phoneCanonical) {
+      setProfilePhoneError('Enter a valid 10-digit Nepal mobile number.');
+      setProfileError('Enter a valid 10-digit Nepal mobile number.');
       return;
     }
 
     setProfileSaving(true);
     setProfileMessage('');
     setProfileError('');
+    setProfilePhoneError('');
 
     const { error } = await supabase.auth.updateUser({
       data: {
         full_name: updatedName,
-        phone: profilePhone.trim(),
+        phone: phoneCanonical,
         address: profileAddress.trim(),
         city: profileCity.trim(),
       },
@@ -256,8 +218,6 @@ export default function AccountPage() {
       return;
     }
 
-    setName(updatedName);
-    setProfileName(updatedName);
     setProfileMessage('Your profile has been updated successfully.');
     setProfileSaving(false);
   };
@@ -272,9 +232,6 @@ export default function AccountPage() {
     setAvatarUploading(true);
     setSettingsError('');
     setSettingsMessage('');
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) {
       setSettingsError('Please sign in to update your profile photo.');
       setAvatarUploading(false);
@@ -315,7 +272,7 @@ export default function AccountPage() {
       setAddressForm({
         label: address.label || '',
         recipient_name: address.recipient_name,
-        phone: address.phone,
+        phone: address.phone.replace(/^\+?977/, ''),
         address_line: address.address_line,
         city: address.city,
       });
@@ -325,6 +282,7 @@ export default function AccountPage() {
     }
     setAddressMessage('');
     setAddressError('');
+    setAddressPhoneError('');
     setShowAddressForm(true);
   };
 
@@ -333,17 +291,21 @@ export default function AccountPage() {
     setEditingAddress(null);
     setAddressMessage('');
     setAddressError('');
+    setAddressPhoneError('');
   };
 
   const handleAddressSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddressError('');
     setAddressMessage('');
+    setAddressPhoneError('');
+
+    const phoneCanonical = toCanonicalNepalMobile(addressForm.phone);
 
     const formData = {
       label: addressForm.label.trim() || null,
       recipient_name: addressForm.recipient_name.trim(),
-      phone: addressForm.phone.trim(),
+      phone: phoneCanonical || addressForm.phone.trim(),
       address_line: addressForm.address_line.trim(),
       city: addressForm.city.trim(),
     };
@@ -353,9 +315,12 @@ export default function AccountPage() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (!phoneCanonical) {
+      setAddressPhoneError('Enter a valid 10-digit Nepal mobile number.');
+      setAddressError('Enter a valid 10-digit Nepal mobile number.');
+      return;
+    }
+
     if (!user) {
       setAddressError('Please login to save an address.');
       return;
@@ -393,9 +358,6 @@ export default function AccountPage() {
 
   const handleAddressDelete = async (address: Address) => {
     if (!window.confirm('Delete this address?')) return;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
     const { error } = await supabase
       .from('addresses')
@@ -411,9 +373,6 @@ export default function AccountPage() {
   };
 
   const handleSetDefaultAddress = async (address: Address) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return;
 
     const owner = addresses.find((a) => a.id === address.id);
@@ -429,15 +388,122 @@ export default function AccountPage() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-
-    setLoggedIn(false);
-    setName('');
-    setEmail('');
-    setPhone('');
+    await logout();
+    setOrders([]);
+    setAddresses([]);
   };
 
-  const totalSpent = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const handleAuthenticated = () => {
+    setShowAuth(false);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 pt-28 pb-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="bg-card rounded-3xl card-shadow overflow-hidden mb-6">
+              <div className="p-6 md:p-8 flex items-center gap-5">
+                <div className="w-20 h-20 rounded-2xl bg-muted animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded animate-pulse w-24" />
+                  <div className="h-7 bg-muted rounded animate-pulse w-48" />
+                  <div className="h-3 bg-muted rounded animate-pulse w-36" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 border-t border-border">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="p-4 text-center space-y-1">
+                    <div className="h-5 bg-muted rounded animate-pulse mx-auto w-12" />
+                    <div className="h-3 bg-muted rounded animate-pulse mx-auto w-10" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+        <Footer />
+        <BottomNav />
+      </div>
+    );
+  }
+
+  if (!loggedIn) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="flex-1 pt-28 pb-20">
+          <div className="max-w-lg mx-auto px-4 sm:px-6">
+            <section className="bg-card rounded-3xl card-shadow overflow-hidden mb-6">
+              <div className="p-6 md:p-8">
+                <div className="flex items-center gap-5">
+                  <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <Icon name="UserCircleIcon" size={52} className="text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-primary font-700 mb-1">YourMarket Account</p>
+                    <h1 className="text-2xl font-800 text-foreground">Guest</h1>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Sign in to manage orders, save addresses, submit products, and more.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="bg-card rounded-3xl card-shadow p-6 mb-6">
+              <div className="text-center max-w-sm mx-auto">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                  <Icon name="LockClosedIcon" size={26} className="text-primary" />
+                </div>
+                <h2 className="text-xl font-800 mb-2">Sign in to YourMarket</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Track orders, save addresses, manage submissions, and enjoy a personalized
+                  experience.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAuth(true)}
+                  className="w-full btn-primary py-3"
+                >
+                  Continue with Google
+                </button>
+              </div>
+            </section>
+
+            <section className="mb-6">
+              <Link
+                href="/account/send-product"
+                className="bg-card rounded-3xl card-shadow p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Icon name="PaperAirplaneIcon" size={26} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-base font-800">Send Your Product</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Have something to sell? Submit your product for review.
+                  </p>
+                </div>
+                <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
+              </Link>
+            </section>
+          </div>
+        </main>
+
+        {showAuth && (
+          <PasswordlessAuth
+            onClose={() => setShowAuth(false)}
+            onAuthenticated={handleAuthenticated}
+          />
+        )}
+
+        <Footer />
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -445,279 +511,191 @@ export default function AccountPage() {
 
       <main className="flex-1 pt-28 pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          {/* Account Header */}
           <section className="bg-card rounded-3xl card-shadow overflow-hidden mb-6">
             <div className="p-6 md:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Icon name="UserCircleIcon" size={52} className="text-primary" />
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                  {avatarUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <Icon name="UserCircleIcon" size={52} className="text-primary" />
+                  )}
                 </div>
 
-                <div className="flex-1">
-                  <p className="text-sm text-primary font-700 mb-1">
-                    {loggedIn ? 'Welcome back' : 'Welcome to Your Market'}
-                  </p>
-
-                  <h1 className="text-2xl md:text-3xl font-800 text-foreground">
-                    {loggedIn ? name : 'My Account'}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-primary font-700 mb-1">Welcome back</p>
+                  <h1 className="text-2xl md:text-3xl font-800 text-foreground truncate">
+                    {profile.name}
                   </h1>
-
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {loggedIn
-                      ? email || phone || 'Signed in'
-                      : 'Login or create an account to manage your shopping.'}
+                  <p className="text-sm text-muted-foreground mt-2 truncate">
+                    {profile.email || profile.phone || 'Member'}
                   </p>
                 </div>
 
-                {loggedIn ? (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="px-5 py-3 rounded-xl border border-border text-sm font-700 hover:bg-muted transition-colors"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Icon name="ArrowRightOnRectangleIcon" size={17} />
-                      Logout
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowAuth(true)}
-                    className="btn-primary px-5 py-3"
-                  >
-                    Login
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 border-t border-border">
-              <div className="p-4 text-center">
-                <p className="text-xl font-800">{orders.length}</p>
-                <p className="text-xs text-muted-foreground">Orders</p>
-              </div>
-
-              <div className="p-4 text-center border-x border-border">
-                <p className="text-xl font-800">रू{totalSpent.toLocaleString('en-IN')}</p>
-                <p className="text-xs text-muted-foreground">Total Spent</p>
-              </div>
-
-              <div className="p-4 text-center">
-                <p className="text-xl font-800">{loggedIn ? 'Member' : 'Guest'}</p>
-                <p className="text-xs text-muted-foreground">Account</p>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-5 py-3 rounded-xl border border-border text-sm font-700 hover:bg-muted transition-colors self-start shrink-0"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Icon name="ArrowRightOnRectangleIcon" size={17} />
+                    Logout
+                  </span>
+                </button>
               </div>
             </div>
           </section>
 
-          {/* Login / Signup Buttons */}
-          {!loggedIn && (
-            <section className="bg-card rounded-3xl card-shadow p-6 mb-6">
-              <div className="text-center max-w-xl mx-auto">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                  <Icon name="LockClosedIcon" size={26} className="text-primary" />
+          <section className="mb-8">
+            <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-800">My Orders</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Your recent purchases</p>
                 </div>
-
-                <h2 className="text-xl font-800 mb-2">Sign in to your account</h2>
-
-                <p className="text-sm text-muted-foreground mb-6">
-                  Sign in with your phone number or Google. No password needed.
-                </p>
-
-                <div className="flex justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowAuth(true)}
-                    className="btn-primary px-6 py-3"
-                  >
-                    Login
-                  </button>
-                </div>
+                <Link href="/products" className="text-sm font-700 text-primary">
+                  Shop Products
+                </Link>
               </div>
-            </section>
-          )}
 
-          {/* Quick Actions */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {ordersLoading ? (
+                <div className="py-14 text-center">
+                  <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">Loading your orders...</p>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="py-14 text-center border border-dashed border-border rounded-2xl">
+                  <Icon
+                    name="ShoppingBagIcon"
+                    size={42}
+                    className="mx-auto mb-4 text-muted-foreground/30"
+                  />
+                  <h3 className="font-800 text-lg mb-2">No orders yet</h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Your purchases will appear here after checkout.
+                  </p>
+                  <Link
+                    href="/products"
+                    className="btn-primary inline-flex items-center gap-2 px-6 py-3"
+                  >
+                    <Icon name="ShoppingBagIcon" size={17} />
+                    Start Shopping
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <Link
+                      key={order.id}
+                      href={`/account/orders/${order.id}`}
+                      className="block border border-border rounded-2xl p-5 hover:border-primary/40 hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
+                        <div>
+                          <p className="font-800">
+                            {order.orderNumber
+                              ? `Order ${order.orderNumber}`
+                              : `Order #${order.id}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(order.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="sm:text-right">
+                          <p className="text-lg font-800">
+                            रू{Number(order.total || 0).toLocaleString('en-IN')}
+                          </p>
+                          <span
+                            className={`text-xs font-800 ${
+                              order.status === 'Cancelled' || order.status === 'Refunded'
+                                ? 'text-red-600'
+                                : order.status === 'Delivered'
+                                  ? 'text-green-600'
+                                  : 'text-blue-600'
+                            }`}
+                          >
+                            {order.status || 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground flex items-center justify-between">
+                        <span>
+                          {order.itemCount ?? order.items?.length ?? 0} item(s)·{' '}
+                          {order.paymentMethod === 'cod'
+                            ? 'Cash on Delivery'
+                            : (order.paymentMethod || 'cod').replace(/^./, (c) => c.toUpperCase())}
+                          {order.paymentStatus ? (
+                            <span className="ml-1 capitalize">· {order.paymentStatus}</span>
+                          ) : null}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-primary font-700 text-xs">
+                          View Details
+                          <Icon name="ArrowRightIcon" size={14} />
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="mb-6 space-y-3">
             <button
               type="button"
               onClick={openProfile}
-              className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4 text-left hover:-translate-y-0.5 transition-transform"
+              className="w-full bg-card rounded-3xl card-shadow p-5 md:p-6 flex items-center gap-4 text-left hover:-translate-y-0.5 transition-transform"
             >
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Icon name="UserIcon" size={22} className="text-primary" />
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Icon name="UserIcon" size={26} className="text-primary" />
               </div>
-
-              <div>
-                <p className="font-800">My Profile</p>
-                <p className="text-xs text-muted-foreground">Account information</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-800">My Profile</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Edit your name, contact and delivery details.
+                </p>
               </div>
+              <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
             </button>
 
             <Link
-              href="/wishlist"
-              className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
+              href="/account/send-product"
+              className="bg-card rounded-3xl card-shadow p-5 md:p-6 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
             >
-              <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-                <Icon name="HeartIcon" variant="solid" size={22} className="text-red-500" />
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Icon name="PaperAirplaneIcon" size={26} className="text-primary" />
               </div>
-
-              <div>
-                <p className="font-800">Wishlist</p>
-                <p className="text-xs text-muted-foreground">Saved products</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/cart"
-              className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
-            >
-              <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
-                <Icon name="ShoppingCartIcon" size={22} className="text-orange-500" />
-              </div>
-
-              <div>
-                <p className="font-800">Shopping Cart</p>
-                <p className="text-xs text-muted-foreground">Review your cart</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/account/notifications"
-              className="bg-card rounded-2xl card-shadow p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
-            >
-              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                <Icon name="BellIcon" size={22} className="text-blue-500" />
-              </div>
-
-              <div>
-                <p className="font-800">Notifications</p>
-                <p className="text-xs text-muted-foreground">Order updates</p>
-              </div>
-            </Link>
-          </section>
-
-          {/* Send Product Banner */}
-          {loggedIn && (
-            <section className="mb-8">
-              <Link
-                href="/account/send-product"
-                className="bg-card rounded-3xl card-shadow p-5 md:p-7 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Icon name="PaperAirplaneIcon" size={26} className="text-primary" />
-                </div>
-
-                <div className="flex-1">
-                  <p className="text-lg font-800">Send Your Product</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Have something to sell? Submit your product details to YourMarket.
-                  </p>
-                </div>
-
-                <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
-              </Link>
-            </section>
-          )}
-        </div>
-
-        {loggedIn && (
-          <section className="bg-card rounded-3xl card-shadow p-5 md:p-7">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl md:text-2xl font-800">My Orders</h2>
-                <p className="text-sm text-muted-foreground mt-1">Your recent purchases</p>
-              </div>
-              <Link href="/products" className="text-sm font-700 text-primary">
-                Shop Products
-              </Link>
-            </div>
-
-            {ordersLoading ? (
-              <div className="py-14 text-center">
-                <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-sm text-muted-foreground">Loading your orders...</p>
-              </div>
-            ) : orders.length === 0 ? (
-              <div className="py-14 text-center border border-dashed border-border rounded-2xl">
-                <Icon
-                  name="ShoppingBagIcon"
-                  size={42}
-                  className="mx-auto mb-4 text-muted-foreground/30"
-                />
-                <h3 className="font-800 text-lg mb-2">No orders yet</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Your purchases will appear here after checkout.
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-800">Send Your Product</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Have something to sell? Submit your product details.
                 </p>
-                <Link
-                  href="/products"
-                  className="btn-primary inline-flex items-center gap-2 px-6 py-3"
-                >
-                  <Icon name="ShoppingBagIcon" size={17} />
-                  Start Shopping
-                </Link>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <Link
-                    key={order.id}
-                    href={`/account/orders/${order.id}`}
-                    className="block border border-border rounded-2xl p-5 hover:border-primary/40 hover:bg-muted/20 transition-colors"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
-                      <div>
-                        <p className="font-800">
-                          {order.orderNumber ? `Order ${order.orderNumber}` : `Order #${order.id}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(order.createdAt).toLocaleString()}
-                        </p>
-                      </div>
+              <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
+            </Link>
 
-                      <div className="sm:text-right">
-                        <p className="text-lg font-800">
-                          रू{Number(order.total || 0).toLocaleString('en-IN')}
-                        </p>
-                        <span
-                          className={`text-xs font-800 ${
-                            order.status === 'Cancelled' || order.status === 'Refunded'
-                              ? 'text-red-600'
-                              : order.status === 'Delivered'
-                                ? 'text-green-600'
-                                : 'text-blue-600'
-                          }`}
-                        >
-                          {order.status || 'Pending'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground flex items-center justify-between">
-                      <span>
-                        {order.itemCount ?? order.items?.length ?? 0} item(s)·{' '}
-                        {order.paymentMethod === 'cod'
-                          ? 'Cash on Delivery'
-                          : (order.paymentMethod || 'cod').replace(/^./, (c) => c.toUpperCase())}
-                        {order.paymentStatus ? (
-                          <span className="ml-1 capitalize">· {order.paymentStatus}</span>
-                        ) : null}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-primary font-700 text-xs">
-                        View Details
-                        <Icon name="ArrowRightIcon" size={14} />
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+            <Link
+              href="/account/submissions"
+              className="bg-card rounded-3xl card-shadow p-5 md:p-6 flex items-center gap-4 hover:-translate-y-0.5 transition-transform"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Icon name="DocumentTextIcon" size={26} className="text-primary" />
               </div>
-            )}
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-800">My Submissions</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  View status of your product submissions.
+                </p>
+              </div>
+              <Icon name="ArrowRightIcon" size={20} className="text-primary shrink-0" />
+            </Link>
           </section>
-        )}
+        </div>
       </main>
 
-      {/* Google Auth Modal */}
       {showAuth && (
         <PasswordlessAuth
           onClose={() => setShowAuth(false)}
@@ -725,13 +703,11 @@ export default function AccountPage() {
         />
       )}
 
-      {/* Profile Modal */}
       {showProfile && (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-800">My Profile</h2>
-
               <button
                 type="button"
                 onClick={handleProfileCancel}
@@ -742,286 +718,252 @@ export default function AccountPage() {
               </button>
             </div>
 
-            {loggedIn ? (
-              <form onSubmit={handleProfileSave} className="space-y-4">
+            <form onSubmit={handleProfileSave} className="space-y-4">
+              <div>
+                <label htmlFor="profile-name" className="block text-xs text-muted-foreground mb-1">
+                  Full Name
+                </label>
+                <input
+                  id="profile-name"
+                  type="text"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 font-800 outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div>
                   <label
-                    htmlFor="profile-name"
+                    htmlFor="profile-phone"
                     className="block text-xs text-muted-foreground mb-1"
                   >
-                    Full Name
+                    Phone number
                   </label>
-                  <input
-                    id="profile-name"
-                    type="text"
-                    required
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 font-800 outline-none focus:ring-2 focus:ring-primary/20"
+                  <NepalPhoneInput
+                    id="profile-phone"
+                    value={profilePhone}
+                    onChange={(local) => {
+                      setProfilePhone(local);
+                      setProfilePhoneError('');
+                    }}
+                    error={profilePhoneError}
                   />
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor="profile-phone"
-                      className="block text-xs text-muted-foreground mb-1"
-                    >
-                      Phone number
-                    </label>
-                    <input
-                      id="profile-phone"
-                      type="tel"
-                      value={profilePhone}
-                      onChange={(e) => setProfilePhone(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="profile-city"
-                      className="block text-xs text-muted-foreground mb-1"
-                    >
-                      Default city
-                    </label>
-                    <input
-                      id="profile-city"
-                      value={profileCity}
-                      onChange={(e) => setProfileCity(e.target.value)}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
                 <div>
                   <label
-                    htmlFor="profile-address"
+                    htmlFor="profile-city"
                     className="block text-xs text-muted-foreground mb-1"
                   >
-                    Default shipping address
+                    Default city
                   </label>
-                  <textarea
-                    id="profile-address"
-                    value={profileAddress}
-                    onChange={(e) => setProfileAddress(e.target.value)}
-                    rows={2}
+                  <input
+                    id="profile-city"
+                    value={profileCity}
+                    onChange={(e) => setProfileCity(e.target.value)}
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-                <div className="p-4 rounded-2xl bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-1">Email</p>
-                  <p className="font-800 break-all">{email}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-1">Account Type</p>
-                  <p className="font-800">Member</p>
-                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="profile-address"
+                  className="block text-xs text-muted-foreground mb-1"
+                >
+                  Default shipping address
+                </label>
+                <textarea
+                  id="profile-address"
+                  value={profileAddress}
+                  onChange={(e) => setProfileAddress(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="p-4 rounded-2xl bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Email</p>
+                <p className="font-800 break-all">{profile.email}</p>
+              </div>
+              <div className="p-4 rounded-2xl bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">Account Type</p>
+                <p className="font-800">Member</p>
+              </div>
 
-                <div className="p-4 rounded-2xl bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-2">Profile photo</p>
-                  <div className="flex items-center gap-3">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt="Profile"
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Icon name="UserCircleIcon" size={30} className="text-primary" />
-                      </div>
-                    )}
-                    <label className="btn-primary px-3 py-2 text-xs cursor-pointer">
-                      {avatarUploading ? 'Uploading...' : 'Upload photo'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        disabled={avatarUploading}
-                        className="hidden"
-                      />
-                    </label>
-                    {avatarUrl && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveAvatar}
-                        disabled={avatarUploading}
-                        className="text-xs font-700 text-red-600"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Requires the avatars Storage bucket and policies to be created separately.
-                  </p>
+              <div className="p-4 rounded-2xl bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-2">Profile photo</p>
+                <div className="flex items-center gap-3">
+                  {avatarUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={avatarUrl}
+                      alt="Profile"
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon name="UserCircleIcon" size={30} className="text-primary" />
+                    </div>
+                  )}
+                  <label className="btn-primary px-3 py-2 text-xs cursor-pointer">
+                    {avatarUploading ? 'Uploading...' : 'Upload photo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      disabled={avatarUploading}
+                      className="hidden"
+                    />
+                  </label>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarUploading}
+                      className="text-xs font-700 text-red-600"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
-                {settingsError && <p className="text-sm text-red-500 font-600">{settingsError}</p>}
-                {settingsMessage && (
-                  <p className="text-sm text-green-600 font-600">{settingsMessage}</p>
-                )}
-                {profileError && <p className="text-sm text-red-500 font-600">{profileError}</p>}
+              </div>
+              {settingsError && <p className="text-sm text-red-500 font-600">{settingsError}</p>}
+              {settingsMessage && (
+                <p className="text-sm text-green-600 font-600">{settingsMessage}</p>
+              )}
+              {profileError && <p className="text-sm text-red-500 font-600">{profileError}</p>}
+              {profileMessage && (
+                <p className="text-sm text-green-600 font-600">{profileMessage}</p>
+              )}
 
-                {profileMessage && (
-                  <p className="text-sm text-green-600 font-600">{profileMessage}</p>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleProfileCancel}
-                    disabled={profileSaving}
-                    className="flex-1 py-3 rounded-xl bg-muted font-700 disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={profileSaving}
-                    className="btn-primary flex-1 justify-center py-3 disabled:opacity-50"
-                  >
-                    {profileSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-1">Full Name</p>
-                  <p className="font-800">Guest User</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-1">Email</p>
-                  <p className="font-800">Not signed in</p>
-                </div>
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleProfileCancel}
-                  className="w-full py-3 rounded-xl bg-muted font-700"
+                  disabled={profileSaving}
+                  className="flex-1 py-3 rounded-xl bg-muted font-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
+                <button
+                  type="submit"
+                  disabled={profileSaving}
+                  className="btn-primary flex-1 justify-center py-3 disabled:opacity-50"
+                >
+                  {profileSaving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
-            )}
+            </form>
           </div>
         </div>
       )}
 
-      {loggedIn && (
-        <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pb-20">
-          <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
-            <h2 className="text-xl md:text-2xl font-800">Account Security</h2>
-            <p className="text-sm text-muted-foreground mt-1 mb-5">
-              Your account uses passwordless sign-in. You sign in each time with your phone number
-              (SMS code) or your Google account — no password to remember or reset.
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pb-8">
+        <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
+          <h2 className="text-xl md:text-2xl font-800">Account Security</h2>
+          <p className="text-sm text-muted-foreground mt-1 mb-5">
+            Your account uses passwordless Google sign-in. No password to remember or reset.
+          </p>
+          {(settingsError || settingsMessage) && (
+            <p
+              className={`text-sm font-600 mt-4 ${settingsError ? 'text-red-500' : 'text-green-600'}`}
+            >
+              {settingsError || settingsMessage}
             </p>
-            {(settingsError || settingsMessage) && (
-              <p
-                className={`text-sm font-600 mt-4 ${settingsError ? 'text-red-500' : 'text-green-600'}`}
-              >
-                {settingsError || settingsMessage}
-              </p>
-            )}
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
-      {loggedIn && (
-        <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pb-10">
-          <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl md:text-2xl font-800">My Addresses</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manage your saved delivery addresses
-                </p>
-              </div>
+      <section className="max-w-6xl mx-auto w-full px-4 sm:px-6 pb-20">
+        <div className="bg-card rounded-3xl card-shadow p-5 md:p-7">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl md:text-2xl font-800">My Addresses</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage your saved delivery addresses
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => openAddressForm()}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              <Icon name="PlusIcon" size={16} />
+              Add Address
+            </button>
+          </div>
+
+          {addressError && <p className="text-sm text-red-500 font-600 mb-4">{addressError}</p>}
+
+          {addresses.length === 0 ? (
+            <div className="py-10 text-center border border-dashed border-border rounded-2xl">
+              <Icon name="MapPinIcon" size={36} className="mx-auto mb-3 text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm mb-4">
+                You haven&apos;t saved any addresses yet.
+              </p>
               <button
                 type="button"
                 onClick={() => openAddressForm()}
-                className="btn-primary px-4 py-2 text-sm"
+                className="text-sm font-700 text-primary hover:underline"
               >
-                <Icon name="PlusIcon" size={16} />
-                Add Address
+                Add your first address
               </button>
             </div>
-
-            {addressError && <p className="text-sm text-red-500 font-600 mb-4">{addressError}</p>}
-
-            {addresses.length === 0 ? (
-              <div className="py-10 text-center border border-dashed border-border rounded-2xl">
-                <Icon
-                  name="MapPinIcon"
-                  size={36}
-                  className="mx-auto mb-3 text-muted-foreground/40"
-                />
-                <p className="text-muted-foreground text-sm mb-4">
-                  You haven&apos;t saved any addresses yet.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => openAddressForm()}
-                  className="text-sm font-700 text-primary hover:underline"
-                >
-                  Add your first address
-                </button>
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
-                {addresses.map((addr) => (
-                  <div key={addr.id} className="border border-border rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        {addr.label && (
-                          <span className="text-xs font-700 text-primary uppercase tracking-wider">
-                            {addr.label}
-                          </span>
-                        )}
-                        {addr.is_default && (
-                          <span className="text-[10px] font-800 bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                            DEFAULT
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openAddressForm(addr)}
-                          className="p-1.5 rounded-lg hover:bg-muted"
-                          aria-label="Edit address"
-                        >
-                          <Icon name="PencilIcon" size={15} className="text-muted-foreground" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAddressDelete(addr)}
-                          className="p-1.5 rounded-lg hover:bg-red-50"
-                          aria-label="Delete address"
-                        >
-                          <Icon name="TrashIcon" size={15} className="text-muted-foreground" />
-                        </button>
-                      </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {addresses.map((addr) => (
+                <div key={addr.id} className="border border-border rounded-2xl p-5">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      {addr.label && (
+                        <span className="text-xs font-700 text-primary uppercase tracking-wider">
+                          {addr.label}
+                        </span>
+                      )}
+                      {addr.is_default && (
+                        <span className="text-[10px] font-800 bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                          DEFAULT
+                        </span>
+                      )}
                     </div>
-                    <p className="font-700 text-sm">{addr.recipient_name}</p>
-                    <p className="text-sm text-muted-foreground">{addr.address_line}</p>
-                    <p className="text-sm text-muted-foreground">{addr.city}</p>
-                    <p className="text-sm text-muted-foreground">{addr.phone}</p>
-                    {!addr.is_default && (
+                    <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => handleSetDefaultAddress(addr)}
-                        className="mt-3 text-xs font-700 text-primary hover:underline"
+                        onClick={() => openAddressForm(addr)}
+                        className="p-1.5 rounded-lg hover:bg-muted"
+                        aria-label="Edit address"
                       >
-                        Set as default
+                        <Icon name="PencilIcon" size={15} className="text-muted-foreground" />
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => handleAddressDelete(addr)}
+                        className="p-1.5 rounded-lg hover:bg-red-50"
+                        aria-label="Delete address"
+                      >
+                        <Icon name="TrashIcon" size={15} className="text-muted-foreground" />
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+                  <p className="font-700 text-sm">{addr.recipient_name}</p>
+                  <p className="text-sm text-muted-foreground">{addr.address_line}</p>
+                  <p className="text-sm text-muted-foreground">{addr.city}</p>
+                  <p className="text-sm text-muted-foreground">{addr.phone}</p>
+                  {!addr.is_default && (
+                    <button
+                      type="button"
+                      onClick={() => handleSetDefaultAddress(addr)}
+                      className="mt-3 text-xs font-700 text-primary hover:underline"
+                    >
+                      Set as default
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Address Modal */}
       {showAddressForm && (
         <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-[520px] sm:max-w-[540px] lg:max-w-[560px] bg-card rounded-3xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden">
@@ -1075,14 +1017,11 @@ export default function AccountPage() {
                 <label htmlFor="addr-phone" className="block text-xs text-muted-foreground mb-1">
                   Phone
                 </label>
-                <input
+                <NepalPhoneInput
                   id="addr-phone"
-                  type="tel"
-                  required
                   value={addressForm.phone}
-                  onChange={(e) => setAddressForm((f) => ({ ...f, phone: e.target.value }))}
-                  placeholder="Phone number"
-                  className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-11"
+                  onChange={(local) => setAddressForm((f) => ({ ...f, phone: local }))}
+                  error={addressPhoneError}
                 />
               </div>
               <div>

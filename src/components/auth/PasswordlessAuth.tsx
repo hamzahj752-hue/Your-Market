@@ -3,14 +3,15 @@
 import React, { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
-import { getSafeOAuthRedirect } from '@/lib/auth';
+import { getSafeOAuthRedirect, getSafeInternalPath } from '@/lib/auth';
 
 interface Props {
   onClose: () => void;
-  onAuthenticated: () => void;
+  onAuthenticated?: () => void;
+  returnTo?: string;
 }
 
-export default function PasswordlessAuth({ onClose, onAuthenticated }: Props) {
+export default function PasswordlessAuth({ onClose, onAuthenticated, returnTo }: Props) {
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -19,20 +20,21 @@ export default function PasswordlessAuth({ onClose, onAuthenticated }: Props) {
     setGoogleLoading(true);
 
     try {
+      const callbackUrl = getSafeOAuthRedirect();
+      const safeReturn = getSafeInternalPath(returnTo);
+      const target = callbackUrl + (returnTo ? `?next=${encodeURIComponent(safeReturn)}` : '');
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: getSafeOAuthRedirect(),
-        },
+        options: { redirectTo: target },
       });
 
       if (oauthError) {
-        console.error('SUPABASE GOOGLE OAUTH ERROR:', oauthError);
+        console.error('Google OAuth error:', oauthError);
         setError('Unable to start Google sign-in. Please try again.');
         setGoogleLoading(false);
       }
     } catch (err) {
-      console.error('GOOGLE OAUTH EXCEPTION:', err);
+      console.error('Google OAuth exception:', err);
       setError('Unable to start Google sign-in. Please try again.');
       setGoogleLoading(false);
     }
@@ -43,7 +45,6 @@ export default function PasswordlessAuth({ onClose, onAuthenticated }: Props) {
       <div className="w-full max-w-md bg-card rounded-3xl shadow-2xl p-6">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-2xl font-800">Sign in</h2>
-
           <button
             type="button"
             onClick={onClose}
@@ -54,8 +55,8 @@ export default function PasswordlessAuth({ onClose, onAuthenticated }: Props) {
           </button>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-5">
-          Sign in securely with your Google account.
+        <p className="text-sm text-muted-foreground mb-6">
+          Sign in securely with your Google account to manage orders, submissions, and more.
         </p>
 
         <button

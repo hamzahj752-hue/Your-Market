@@ -3,21 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
-import AppImage from '@/components/ui/AppImage';
 import ProductCard from '@/components/product/ProductCard';
-import { fetchDeals, fetchPromoBanners, BriefDeal, BriefPromo } from '@/lib/homepageCms';
+import { fetchDeals, BriefDeal } from '@/lib/homepageCms';
 
 export default function DealsSection() {
   const [deals, setDeals] = useState<BriefDeal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [promos, setPromos] = useState<BriefPromo[]>([]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetchDeals(), fetchPromoBanners()]).then(([cmsDeals, cmsPromos]) => {
+    fetchDeals().then((cmsDeals) => {
       if (!active) return;
       setDeals(cmsDeals);
-      setPromos(cmsPromos);
       setLoading(false);
     });
     return () => {
@@ -88,48 +85,6 @@ export default function DealsSection() {
                 <Icon name="ArrowRightIcon" size={15} />
               </button>
             </Link>
-          </div>
-        )}
-
-        {/* Promo Banner (only from CMS — never fabricated) */}
-        {promos.length > 0 && (
-          <div className="mt-10 space-y-5">
-            {promos.map((promo) => (
-              <div
-                key={promo.id}
-                className="rounded-2xl md:rounded-3xl overflow-hidden relative h-40 md:h-56"
-              >
-                {promo.image_url && (
-                  <AppImage
-                    src={promo.image_url}
-                    alt={promo.title || 'Promotion'}
-                    fill
-                    sizes="100vw"
-                    className="object-cover w-full h-full"
-                  />
-                )}
-                <div className="absolute inset-0 from-black/60 via-black/30 to-transparent bg-gradient-to-r" />
-                <div className="relative z-10 h-full flex items-center justify-between px-6 md:px-12">
-                  <div className="max-w-xs">
-                    {promo.subtitle && (
-                      <p className="text-white/80 text-sm font-600 mb-1">{promo.subtitle}</p>
-                    )}
-                    <h3 className="text-xl md:text-3xl font-800 text-white leading-tight">
-                      {promo.title || 'Limited Time Offer'}
-                    </h3>
-                  </div>
-                  {promo.cta_text && promo.cta_url && promo.cta_url.startsWith('/') && (
-                    <Link href={promo.cta_url} className="flex-shrink-0">
-                      <button className="bg-white text-accent font-800 px-4 md:px-6 py-2.5 md:py-3 rounded-full shadow-accent">
-                        <span className="hidden sm:inline">{promo.cta_text}</span>
-                        <span className="sm:hidden">Shop</span>
-                        <Icon name="ArrowRightIcon" size={16} className="inline ml-2" />
-                      </button>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
         )}
 

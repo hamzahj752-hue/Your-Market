@@ -4,6 +4,8 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import '../styles/tailwind.css';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { CartProvider } from '@/context/CartContext';
+import { AuthProvider } from '@/context/AuthContext';
+import { HomeLocationProvider } from '@/context/HomeLocationContext';
 import MaintenanceGate from '@/components/MaintenanceGate';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -74,11 +76,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={plusJakartaSans.variable}>
       <body className={plusJakartaSans.className}>
-        <CartProvider>
-          <WishlistProvider>
-            <MaintenanceGate>{children}</MaintenanceGate>
-          </WishlistProvider>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <HomeLocationProvider>
+                <MaintenanceGate>{children}</MaintenanceGate>
+              </HomeLocationProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );

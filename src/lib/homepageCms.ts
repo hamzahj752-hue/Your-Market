@@ -195,6 +195,42 @@ export async function fetchHeroBanners(): Promise<BriefHero[]> {
   }
 }
 
+export interface HeroAutoplay {
+  enabled: boolean;
+  intervalMs: number;
+}
+
+// Hero autoplay configuration. The migration adding hero_autoplay_enabled /
+// hero_autoplay_interval_ms columns to store_settings is currently unapplied, so
+// querying those columns produces a 400. Until the schema is rolled out, return
+// safe defaults directly. The code is structured so DB settings can be restored
+// with a single uncomment when the columns land.
+export async function fetchHeroAutoplay(): Promise<HeroAutoplay> {
+  const defaults: HeroAutoplay = { enabled: true, intervalMs: 4500 };
+
+  // TODO: Re-enable when migration 20260903120000_homepage_hero_autoplay is applied.
+  //
+  // try {
+  //   const { data, error } = await supabase
+  //     .from('store_settings')
+  //     .select('hero_autoplay_enabled, hero_autoplay_interval_ms')
+  //     .limit(1)
+  //     .maybeSingle();
+  //   if (error || !data) return defaults;
+  //   const enabled = data.hero_autoplay_enabled;
+  //   const enabledValue = enabled == null ? true : Boolean(enabled);
+  //   let interval =
+  //     data.hero_autoplay_interval_ms == null ? 4500 : Number(data.hero_autoplay_interval_ms);
+  //   if (!Number.isFinite(interval) || interval <= 0) interval = 4500;
+  //   interval = Math.min(10000, Math.max(2500, interval));
+  //   return { enabled: enabledValue, intervalMs: interval };
+  // } catch {
+  //   return defaults;
+  // }
+
+  return defaults;
+}
+
 export async function fetchPromoBanners(): Promise<BriefPromo[]> {
   try {
     const { data, error } = await supabase

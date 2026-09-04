@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
@@ -9,7 +9,9 @@ import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/ui/AppIcon';
 import { useCart } from '@/context/CartContext';
 import LocationPicker from '@/components/LocationPicker/LocationPicker';
+import NepalPhoneInput from '@/components/NepalPhoneInput';
 import { supabase } from '@/lib/supabase';
+import { isValidNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
 
 interface Address {
   id: string;
@@ -56,6 +58,10 @@ const FRIENDLY_ERRORS: Array<[RegExp, string]> = [
     /invalid quantity/i,
     'There was a problem with your cart. Please review the items and try again.',
   ],
+  [
+    /no longer available/i,
+    'A variant in your cart is no longer available. Please review your cart.',
+  ],
 ];
 
 function friendlyOrderError(raw: string): string {
@@ -73,6 +79,8 @@ interface StoreSettings {
   online_payment_enabled: boolean;
 }
 
+const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
+
 export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
   const router = useRouter();
@@ -83,6 +91,7 @@ export default function CheckoutPage() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [method, setMethod] = useState('cod');
@@ -161,6 +170,49 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings]);
 
+  // Resolve the phone that will actually be submitted.
+  const resolvedPhone = useMemo(() => {
+    if (!selectedAddressId || useNewAddress) {
+      return phone.trim();
+    }
+    const selected = addresses.find((a) => a.id === selectedAddressId);
+    return selected?.phone?.trim() || '';
+  }, [phone, selectedAddressId, useNewAddress, addresses]);
+
+  // True iff the phone that will be submitted is a valid Nepal mobile.
+  const resolvedPhoneValid = useMemo(() => isValidNepalMobile(resolvedPhone), [resolvedPhone]);
+
+  const requiredValid = useMemo(() => {
+    const usingSaved = !!selectedAddressId && !useNewAddress;
+    if (usingSaved) {
+      const selected = addresses.find((a) => a.id === selectedAddressId);
+      if (!selected) return false;
+      return (
+        selected.recipient_name.trim() !== '' &&
+        selected.address_line.trim() !== '' &&
+        selected.city.trim() !== '' &&
+        isValidNepalMobile(selected.phone)
+      );
+    }
+    return name.trim() !== '' && address.trim() !== '' && city.trim() !== '' && resolvedPhoneValid;
+  }, [useNewAddress, selectedAddressId, addresses, name, address, city, resolvedPhoneValid]);
+
+  // A phone error is shown live when the field is non-empty but not valid.
+  useEffect(() => {
+    if (!resolvedPhone) {
+      setPhoneError('');
+      return;
+    }
+    if (!resolvedPhoneValid) {
+      setPhoneError('Enter a valid 10-digit Nepal mobile number.');
+    } else {
+      setPhoneError('');
+    }
+  }, [resolvedPhone, resolvedPhoneValid]);
+
+  const canSubmit =
+    !submitting && !loadingUser && availableMethods.length > 0 && items.length > 0 && requiredValid;
+
   const placeOrder = async () => {
     setError('');
 
@@ -185,9 +237,12 @@ export default function CheckoutPage() {
 
     if (!selectedAddressId || useNewAddress) {
       if (!recipient_name) addressError = 'Please enter the recipient name.';
-      else if (!phoneValue) addressError = 'Please enter a phone number.';
-      else if (!addressLine) addressError = 'Please enter the delivery address.';
-      else if (!cityValue) addressError = 'Please enter the city.';
+      else if (!isValidNepalMobile(phoneValue)) {
+        addressError = 'Enter a valid 10-digit Nepal mobile number.';
+        setPhoneError('Enter a valid 10-digit Nepal mobile number.');
+      }
+      if (!addressError && !addressLine) addressError = 'Please enter the delivery address.';
+      if (!addressError && !cityValue) addressError = 'Please enter the city.';
     } else {
       const selected = addresses.find((a) => a.id === selectedAddressId);
       if (selected) {
@@ -195,6 +250,9 @@ export default function CheckoutPage() {
         phoneValue = selected.phone;
         addressLine = selected.address_line;
         cityValue = selected.city;
+        if (!isValidNepalMobile(phoneValue)) {
+          addressError = 'The saved delivery phone is invalid. Please use a new address.';
+        }
       } else {
         addressError = 'Please select a valid delivery address.';
       }
@@ -204,6 +262,9 @@ export default function CheckoutPage() {
       setError(addressError);
       return;
     }
+
+    // Normalise the delivery phone to the canonical form for storage.
+    phoneValue = toCanonicalNepalMobile(phoneValue) || phoneValue;
 
     setSubmitting(true);
 
@@ -217,6 +278,7 @@ export default function CheckoutPage() {
     const itemsPayload = items.map((i) => ({
       product_id: i.id,
       quantity: i.quantity,
+      variant_id: i.variantId || null,
     }));
 
     const addressPayload = {
@@ -265,7 +327,7 @@ export default function CheckoutPage() {
               </p>
               <p className="text-xl font-800 text-primary">{placedOrder.order_number}</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Total: रू{Number(placedOrder.total).toLocaleString('en-IN')} · Status:{' '}
+                Total: {money(Number(placedOrder.total))} · Status:{' '}
                 <span className="font-700 text-green-600">{placedOrder.status}</span>
               </p>
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
@@ -339,145 +401,251 @@ export default function CheckoutPage() {
     );
   }
 
+  const itemCount = items.reduce((sum, it) => sum + it.quantity, 0);
+  const savings = items.reduce((acc, it) => {
+    if (it.originalPrice && it.originalPrice > it.price) {
+      return acc + (it.originalPrice - it.price) * it.quantity;
+    }
+    return acc;
+  }, 0);
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const shippingProgress =
+    freeShippingThreshold > 0 ? Math.min((subtotal / freeShippingThreshold) * 100, 100) : 100;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-28 pb-20">
+      <main className="pt-24 sm:pt-28 pb-40 lg:pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <h1 className="text-3xl font-900 mb-8">Checkout</h1>
+          <h1 className="text-2xl sm:text-3xl font-900 mb-2">Checkout</h1>
+          <p className="text-sm text-muted-foreground mb-8">
+            Complete your delivery details to place your order.
+          </p>
 
-          <div className="grid lg:grid-cols-3 gap-7">
-            <section className="lg:col-span-2 bg-card rounded-2xl card-shadow p-6">
-              {loadingUser ? (
-                <p className="text-sm text-muted-foreground">Loading delivery details...</p>
-              ) : (
-                <>
-                  {addresses.length > 0 && (
-                    <>
-                      <h2 className="text-xl font-800 mb-4">Delivery Address</h2>
-                      <div className="space-y-3 mb-6">
-                        {addresses.map((addr) => (
-                          <label
-                            key={addr.id}
-                            className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
-                              selectedAddressId === addr.id && !useNewAddress
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="saved-address"
-                              className="mt-1"
-                              checked={selectedAddressId === addr.id && !useNewAddress}
-                              onChange={() => {
-                                setUseNewAddress(false);
-                                setSelectedAddressId(addr.id);
-                                setError('');
-                              }}
-                            />
-                            <div className="flex-1">
-                              {addr.label && (
-                                <span className="text-xs font-700 text-primary uppercase tracking-wider">
-                                  {addr.label}
-                                </span>
-                              )}
-                              <p className="font-700 text-sm mt-0.5">{addr.recipient_name}</p>
-                              <p className="text-sm text-muted-foreground">{addr.address_line}</p>
-                              <p className="text-sm text-muted-foreground">{addr.city}</p>
-                              <p className="text-sm text-muted-foreground">{addr.phone}</p>
-                              {addr.is_default && (
-                                <span className="text-xs font-700 text-green-600">Default</span>
-                              )}
-                            </div>
-                          </label>
-                        ))}
+          <div className="grid lg:grid-cols-[1fr_400px] lg:gap-7 items-start">
+            {/* ── Left column: form ── */}
+            <section className="space-y-6">
+              {/* Contact / delivery details */}
+              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                    1
+                  </span>
+                  <h2 className="text-lg font-800">Delivery Details</h2>
+                </div>
+
+                {loadingUser ? (
+                  <p className="text-sm text-muted-foreground">Loading delivery details...</p>
+                ) : (
+                  <>
+                    {addresses.length > 0 && (
+                      <div className="mb-5">
+                        <p className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
+                          Saved addresses
+                        </p>
+                        <div className="space-y-3">
+                          {addresses.map((addr) => {
+                            const addrPhoneValid = isValidNepalMobile(addr.phone);
+                            const active = selectedAddressId === addr.id && !useNewAddress;
+                            return (
+                              <label
+                                key={addr.id}
+                                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
+                                  active ? 'border-primary bg-primary/5' : 'border-border'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="saved-address"
+                                  className="mt-1"
+                                  checked={active}
+                                  onChange={() => {
+                                    setUseNewAddress(false);
+                                    setSelectedAddressId(addr.id);
+                                    setError('');
+                                  }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  {addr.label && (
+                                    <span className="text-xs font-700 text-primary uppercase tracking-wider">
+                                      {addr.label}
+                                    </span>
+                                  )}
+                                  <p className="font-700 text-sm mt-0.5">{addr.recipient_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {addr.address_line}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">{addr.city}</p>
+                                  <p className="text-sm text-muted-foreground">{addr.phone}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {addr.is_default && (
+                                      <span className="text-xs font-700 text-green-600">
+                                        Default
+                                      </span>
+                                    )}
+                                    {!addrPhoneValid && (
+                                      <span className="text-xs font-600 text-red-500">
+                                        Invalid phone — use a new address
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
                             setUseNewAddress(true);
                             setSelectedAddressId(null);
                           }}
-                          className="text-sm font-700 text-primary hover:underline inline-flex items-center gap-1"
+                          className="mt-3 text-sm font-700 text-primary hover:underline inline-flex items-center gap-1"
                         >
                           <Icon name="PlusIcon" size={15} />
                           Use a new address
                         </button>
                       </div>
-                    </>
-                  )}
+                    )}
 
-                  {(addresses.length === 0 || useNewAddress) && (
-                    <div>
-                      <h2 className="text-xl font-800 mb-5">Delivery Details</h2>
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        <input
-                          className="input-search"
-                          placeholder="Full name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                        />
-                        <input
-                          className="input-search"
-                          placeholder="Phone number"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                        />
-                        <LocationPicker
-                          address={address}
-                          onAddressChange={setAddress}
-                          onCityChange={setCity}
-                          onLocationChange={setLocation}
-                        />
-                        <input
-                          className="input-search"
-                          placeholder="City"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                        />
+                    {(addresses.length === 0 || useNewAddress) && (
+                      <div>
+                        <p className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
+                          New address
+                        </p>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-600 mb-1.5">Full name</label>
+                            <input
+                              className="input-search w-full"
+                              placeholder="Full name"
+                              value={name}
+                              onChange={(e) => setName(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-600 mb-1.5">Mobile number</label>
+                            <NepalPhoneInput
+                              value={phone}
+                              onChange={(local) => {
+                                setPhone(local);
+                                setPhoneError('');
+                              }}
+                              placeholder="98XXXXXXXX"
+                              error={phoneError}
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <LocationPicker
+                              address={address}
+                              onAddressChange={setAddress}
+                              onCityChange={setCity}
+                              onLocationChange={setLocation}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-600 mb-1.5">City</label>
+                            <input
+                              className="input-search w-full"
+                              placeholder="City"
+                              value={city}
+                              onChange={(e) => setCity(e.target.value)}
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <h2 className="text-xl font-800 mt-8 mb-4">Payment Method</h2>
-
-              <div className="grid sm:grid-cols-3 gap-3">
-                {availableMethods.map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setMethod(id)}
-                    className={`p-4 rounded-xl border text-left font-700 ${
-                      method === id ? 'border-primary bg-primary/5' : 'border-border'
-                    }`}
-                  >
-                    {label}
-                    <span className="block text-xs font-600 text-muted-foreground mt-1">
-                      Pay in cash on delivery
-                    </span>
-                  </button>
-                ))}
-
-                {settings?.online_payment_enabled && (
-                  <div className="p-4 rounded-xl border border-dashed border-border text-left font-700 opacity-70">
-                    Online Payment
-                    <span className="block text-xs font-600 text-muted-foreground mt-1">
-                      Coming soon
-                    </span>
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
 
-              {availableMethods.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Cash on Delivery is currently unavailable. Please check back later.
-                </p>
-              )}
+              {/* Payment method */}
+              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                    2
+                  </span>
+                  <h2 className="text-lg font-800">Payment Method</h2>
+                </div>
 
-              <div className="mt-6">
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {availableMethods.map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setMethod(id)}
+                      className={`p-4 rounded-xl border text-left font-700 transition-colors ${
+                        method === id ? 'border-primary bg-primary/5' : 'border-border'
+                      }`}
+                    >
+                      {label}
+                      <span className="block text-xs font-600 text-muted-foreground mt-1">
+                        Pay in cash on delivery
+                      </span>
+                    </button>
+                  ))}
+
+                  {settings?.online_payment_enabled && (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-left font-700 opacity-70">
+                      Online Payment
+                      <span className="block text-xs font-600 text-muted-foreground mt-1">
+                        Coming soon
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {availableMethods.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Cash on Delivery is currently unavailable. Please check back later.
+                  </p>
+                )}
+              </div>
+
+              {/* Items */}
+              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                    3
+                  </span>
+                  <h2 className="text-lg font-800">Order Items ({itemCount})</h2>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {items.map((i) => (
+                    <div
+                      key={i.id + ':' + (i.variantId || 'default')}
+                      className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                    >
+                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted/30 flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={i.variantImage || i.image}
+                          alt={i.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-700 text-sm sm:text-base line-clamp-1">{i.name}</p>
+                        {(i.variantSize || i.variantColor) && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {[i.variantColor, i.variantSize].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Qty {i.quantity} × {money(i.price)}
+                        </p>
+                      </div>
+                      <b className="text-sm flex-shrink-0">{money(i.price * i.quantity)}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Coupon */}
+              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
                 <label
                   htmlFor="checkout-coupon"
                   className="text-xs font-700 uppercase tracking-widest text-muted-foreground block mb-2"
@@ -490,80 +658,124 @@ export default function CheckoutPage() {
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   placeholder="Enter coupon code"
-                  className="w-full sm:w-72 rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3.5 outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   Coupon is validated when you place your order.
                 </p>
               </div>
 
-              {error && <p className="text-red-500 text-sm font-600 mt-4">{error}</p>}
-            </section>
+              {error && (
+                <p className="text-red-500 text-sm font-600 flex items-center gap-2">
+                  <Icon name="ExclamationTriangleIcon" size={16} />
+                  {error}
+                </p>
+              )}
 
-            <aside className="bg-card rounded-2xl card-shadow p-6 h-fit">
-              <h2 className="text-xl font-800 mb-5">Order Summary</h2>
-
-              <div className="space-y-3">
-                {items.map((i) => (
-                  <div key={i.id} className="flex justify-between gap-3 text-sm">
-                    <span className="line-clamp-1">
-                      {i.name} × {i.quantity}
-                    </span>
-                    <b>रू{(i.price * i.quantity).toLocaleString()}</b>
-                  </div>
-                ))}
-
-                <hr className="border-border" />
-
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <b>रू{subtotal.toLocaleString()}</b>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <b>{shipping ? `रू${shipping}` : 'FREE'}</b>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Estimated Tax</span>
-                  <b>रू{tax.toLocaleString()}</b>
-                </div>
-
-                {couponCode.trim() && (
-                  <p className="text-xs text-muted-foreground">Discount applied at confirmation.</p>
-                )}
-
-                <div className="flex justify-between text-lg font-900 pt-2">
-                  <span>Total</span>
-                  <span className="text-primary">रू{total.toLocaleString()}</span>
-                </div>
-              </div>
-
+              {/* Desktop place order */}
               <button
                 onClick={placeOrder}
-                disabled={submitting || loadingUser || availableMethods.length === 0}
-                className="btn-primary w-full justify-center mt-6 py-4 disabled:opacity-50"
+                disabled={!canSubmit}
+                className="btn-primary w-full justify-center py-4 disabled:opacity-50 hidden lg:inline-flex"
               >
                 {submitting ? 'Placing order...' : 'Place Order'}
-                {!submitting && <Icon name="CheckIcon" size={18} />}
+                {!submitting && <Icon name="ShieldCheckIcon" size={18} />}
               </button>
+            </section>
 
-              <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
+            {/* ── Right column: sticky order summary ── */}
+            <aside className="bg-card rounded-2xl card-shadow p-5 sm:p-7 lg:sticky lg:top-24">
+              <h2 className="text-lg font-800 mb-5">Order Summary</h2>
+
+              <div className="space-y-3 mb-5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
+                  <span className="font-600">{money(subtotal)}</span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Delivery</span>
+                  {shipping === 0 ? (
+                    <span className="text-green-600 font-700">FREE</span>
+                  ) : (
+                    <span className="font-600">{money(shipping)}</span>
+                  )}
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Estimated Tax</span>
+                  <span className="font-600">{money(tax)}</span>
+                </div>
+
+                {savings > 0 && (
+                  <div className="flex justify-between text-sm bg-green-50 rounded-xl px-3 py-2">
+                    <span className="text-green-700 font-600">You&apos;re saving</span>
+                    <span className="text-green-700 font-800">{money(savings)}</span>
+                  </div>
+                )}
+              </div>
+
+              {shipping > 0 ? (
+                <div className="mb-5 bg-muted/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground font-600 mb-2">
+                    Add{' '}
+                    <span className="text-primary font-800">{money(remainingForFreeShipping)}</span>{' '}
+                    more for FREE delivery
+                  </p>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent rounded-full transition-all duration-500"
+                      style={{ width: `${shippingProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                freeShippingThreshold > 0 && (
+                  <div className="mb-5 bg-green-50 rounded-xl p-3">
+                    <p className="text-xs text-green-700 font-700 flex items-center gap-2">
+                      <Icon name="CheckCircleIcon" size={15} />
+                      You&apos;ve unlocked FREE delivery!
+                    </p>
+                  </div>
+                )
+              )}
+
+              <div className="border-t border-border my-4" />
+
+              <div className="flex justify-between items-baseline mb-6">
+                <span className="text-base font-800">Total</span>
+                <span className="text-2xl font-800 text-primary">{money(total)}</span>
+              </div>
+
+              <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
                 <Icon name="ShieldCheckIcon" size={13} />
                 Your order is validated securely before confirmation.
               </p>
-
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">COD</span>
-                <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">
-                  Online (coming soon)
-                </span>
-              </div>
             </aside>
           </div>
         </div>
       </main>
+
+      {/* ── Mobile sticky place-order bar ── */}
+      <div
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 pt-3"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))' }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-muted-foreground leading-tight">Total</p>
+            <p className="text-lg font-800 text-primary leading-tight">{money(total)}</p>
+          </div>
+          <button
+            onClick={placeOrder}
+            disabled={!canSubmit}
+            className="btn-primary flex-1 justify-center px-4 py-3.5 sm:py-4 disabled:opacity-50"
+          >
+            {submitting ? 'Placing order...' : 'Place Order'}
+            {!submitting && <Icon name="ShieldCheckIcon" size={18} />}
+          </button>
+        </div>
+      </div>
 
       <Footer />
       <BottomNav />

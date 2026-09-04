@@ -132,7 +132,7 @@ export default function ProductCard({ product }: { product: CardProduct }) {
       </div>
 
       {/* Content */}
-      <div className="p-3 sm:p-4 flex flex-col flex-1 min-w-0">
+      <div className="p-2.5 sm:p-3.5 flex flex-col flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-[10px] sm:text-xs text-muted-foreground font-600 uppercase tracking-wider truncate">
             {p.category || p.brand}

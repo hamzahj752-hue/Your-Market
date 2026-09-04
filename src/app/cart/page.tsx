@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useCart } from '@/context/CartContext';
+import { useCart, cartKey } from '@/context/CartContext';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -32,12 +32,7 @@ function CartContent() {
     const load = async () => {
       const [settingsRes, productsRes] = await Promise.all([
         supabase.from('store_settings').select('free_shipping_threshold').limit(1).maybeSingle(),
-        supabase
-          .from('products')
-          .select('id, name, image, alt, price')
-          .eq('active', true)
-          .order('created_at', { ascending: false })
-          .limit(6),
+        supabase.from('products').select('id, name, image, alt, price').limit(8),
       ]);
       if (cancelled) return;
       if (settingsRes.data) {
@@ -119,7 +114,7 @@ function CartContent() {
           </Link>
 
           {items.map((item) => (
-            <CartItemRow key={item.id} item={item} />
+            <CartItemRow key={cartKey(item)} item={item} />
           ))}
 
           <div className="grid grid-cols-3 gap-3 pt-4">

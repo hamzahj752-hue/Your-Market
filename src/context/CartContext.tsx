@@ -14,7 +14,12 @@ export interface CartItem {
   discount?: number;
   variant?: string;
   quantity: number;
+  stockQuantity?: number;
   inStock?: boolean;
+  variantId?: string;
+  variantSize?: string;
+  variantColor?: string;
+  variantImage?: string;
 }
 
 interface CartContextValue {
@@ -23,14 +28,19 @@ interface CartContextValue {
   subtotal: number;
   cartError: string;
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  removeFromCart: (id: string) => void;
+  updateQuantity: (itemKey: string, quantity: number) => void;
+  removeFromCart: (itemKey: string) => void;
   clearCart: () => void;
   clearCartError: () => void;
 }
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 const KEY = 'yourmarket-cart';
+
+// Composite cart key: product_id + variant_id (or 'default' for non-variant items)
+export function cartKey(item: { id: string; variantId?: string }): string {
+  return `${item.id}:${item.variantId || 'default'}`;
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -87,6 +97,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           user_id: userId,
           product_id: i.id,
           quantity: i.quantity,
+          variant_id: i.variantId || null,
         }))
       );
     }
@@ -99,7 +110,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const loadRemoteCart = async (userId: string) => {
       const { data, error } = await supabase
         .from('cart_items')
-        .select('product_id, quantity')
+        .select('product_id, quantity, variant_id')
         .eq('user_id', userId);
 
       if (cancelled || error) return;
@@ -112,7 +123,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const ids = data.map((r) => r.product_id);
+      const ids = [...new Set(data.map((r) => r.product_id))];
       const { data: products, error: pErr } = await supabase
         .from('products')
         .select('*')
@@ -120,22 +131,51 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       if (cancelled || pErr || !products) return;
 
+      // Load variant data if any cart items have variant_ids
+      const variantIds = data.map((r) => r.variant_id).filter((v): v is string => !!v);
+      const variants: Record<string, Record<string, unknown>> = {};
+      if (variantIds.length > 0) {
+        const { data: variantRows } = await supabase
+          .from('product_variants')
+          .select('*')
+          .in('id', variantIds);
+        if (variantRows) {
+          for (const v of variantRows) {
+            variants[v.id] = v;
+          }
+        }
+      }
+
       const remoteItems: CartItem[] = data
         .map((row) => {
           const p = products.find((pr) => pr.id === row.product_id);
           if (!p) return null;
+          const v = row.variant_id ? variants[row.variant_id] : null;
           return {
             id: p.id,
             name: p.name,
-            price: Number(p.price),
-            originalPrice: p.original_price != null ? Number(p.original_price) : undefined,
-            image: p.image,
+            price: v ? Number(v.price ?? p.price) : Number(p.price),
+            originalPrice: v
+              ? v.original_price != null
+                ? Number(v.original_price)
+                : p.original_price != null
+                  ? Number(p.original_price)
+                  : undefined
+              : p.original_price != null
+                ? Number(p.original_price)
+                : undefined,
+            image: v && v.image_url ? (v.image_url as string) : p.image,
             category: p.category,
             rating: Number(p.rating),
             discount: p.discount != null ? Number(p.discount) : undefined,
             variant: p.variant ?? undefined,
             quantity: Number(row.quantity),
-            inStock: Boolean(p.in_stock),
+            stockQuantity: v ? Number(v.stock_quantity) : Number(p.stock_quantity),
+            inStock: v ? Number(v.stock_quantity) > 0 : Boolean(p.in_stock),
+            variantId: row.variant_id || undefined,
+            variantSize: v ? (v.size as string) : undefined,
+            variantColor: v ? (v.color_name as string) : undefined,
+            variantImage: v && v.image_url ? (v.image_url as string) : undefined,
           } as CartItem;
         })
         .filter((i): i is CartItem => i !== null);
@@ -147,10 +187,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         local.length === 0
           ? remoteItems
           : (() => {
-              // Merge: remote quantities win, but keep local-only entries too.
               const result = [...remoteItems];
               local.forEach((item) => {
-                const existing = result.find((m) => m.id === item.id);
+                const key = cartKey(item);
+                const existing = result.find((m) => cartKey(m) === key);
                 if (!existing) result.push(item);
                 else if (existing.quantity < item.quantity) existing.quantity = item.quantity;
               });
@@ -225,48 +265,63 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       addToCart: (item: Omit<CartItem, 'quantity'>) => {
         setCartError('');
 
-        if (item.inStock === false) {
+        if (item.inStock === false || (item.stockQuantity != null && item.stockQuantity <= 0)) {
           setCartError(`${item.name} is currently out of stock.`);
           return;
         }
 
         setItems((prev) => {
-          const found = prev.find((i) => i.id === item.id);
+          const key = cartKey(item);
+          const found = prev.find((i) => cartKey(i) === key);
 
-          return found
-            ? prev.map((i) => (i.id === item.id ? { ...i, ...item, quantity: i.quantity + 1 } : i))
-            : [...prev, { ...item, quantity: 1 }];
+          if (found) {
+            const maxStock = item.stockQuantity != null ? item.stockQuantity : Infinity;
+            if (found.quantity + 1 > maxStock) {
+              setCartError(`Only ${maxStock} of ${item.name} available.`);
+              return prev;
+            }
+            return prev.map((i) =>
+              cartKey(i) === key ? { ...i, ...item, quantity: i.quantity + 1 } : i
+            );
+          }
+          return [...prev, { ...item, quantity: 1 }];
         });
       },
 
-      updateQuantity: (id: string, quantity: number) => {
+      updateQuantity: (itemKey: string, quantity: number) => {
         setCartError('');
 
         if (quantity <= 0) {
-          setItems((prev) => prev.filter((i) => i.id !== id));
+          setItems((prev) => prev.filter((i) => cartKey(i) !== itemKey));
           return;
         }
 
         setItems((prev) =>
           prev.map((i) => {
-            if (i.id !== id) return i;
+            if (cartKey(i) !== itemKey) return i;
 
-            if (i.inStock === false) {
+            if (i.inStock === false || (i.stockQuantity != null && i.stockQuantity <= 0)) {
               setCartError(`${i.name} is currently out of stock.`);
               return i;
             }
 
+            let nextQty = quantity;
+            if (i.stockQuantity != null && nextQty > i.stockQuantity) {
+              nextQty = i.stockQuantity;
+              setCartError(`Only ${i.stockQuantity} of ${i.name} available.`);
+            }
+
             return {
               ...i,
-              quantity,
+              quantity: nextQty,
             };
           })
         );
       },
 
-      removeFromCart: (id: string) => {
+      removeFromCart: (itemKey: string) => {
         setCartError('');
-        setItems((prev) => prev.filter((i) => i.id !== id));
+        setItems((prev) => prev.filter((i) => cartKey(i) !== itemKey));
       },
 
       clearCart: () => {

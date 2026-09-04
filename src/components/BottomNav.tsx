@@ -34,7 +34,7 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-border shadow-[0_-2px_12px_-4px_rgba(30,58,95,0.12)] lg:hidden">
       <div
-        className="flex items-stretch justify-around"
+        className="flex items-stretch justify-around max-w-lg mx-auto"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {navItems.map((item) => {
@@ -47,7 +47,7 @@ export default function BottomNav() {
               href={item.href}
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 h-[60px] transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-[54px] transition-colors ${
                 active ? 'text-primary' : 'text-muted-foreground active:text-foreground'
               }`}
             >

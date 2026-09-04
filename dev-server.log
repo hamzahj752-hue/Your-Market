@@ -1,0 +1,1202 @@
+
+> shopall@0.1.0 dev
+> next dev -p 4028
+
+   ▲ Next.js 15.5.18
+   - Local:        http://localhost:4028
+   - Network:      http://192.168.0.101:4028
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 4.2s
+ ○ Compiling / ...
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ Compiled / in 12.2s (2105 modules)
+ GET / 200 in 14843ms
+ GET / 200 in 539ms
+ ○ Compiling /account/send-product ...
+ ✓ Compiled /account/send-product in 2.9s (2122 modules)
+ GET /account/send-product 200 in 4295ms
+ ○ Compiling /products ...
+ ✓ Compiled /products in 1945ms (2119 modules)
+ GET /products 200 in 3137ms
+ ○ Compiling /account ...
+ ✓ Compiled /account in 1539ms (2149 modules)
+ GET /account 200 in 2662ms
+ ○ Compiling /cart ...
+ ✓ Compiled /cart in 1337ms (2160 modules)
+ GET /cart 200 in 2465ms
+ ○ Compiling /wishlist ...
+ ✓ Compiled /wishlist in 1479ms (2167 modules)
+ GET /wishlist 200 in 2575ms
+ ○ Compiling /checkout ...
+ ✓ Compiled /checkout in 2.1s (2176 modules)
+ GET /checkout 200 in 2724ms
+ GET / 200 in 653ms
+ GET /account/send-product 200 in 433ms
+ GET /products 200 in 532ms
+ GET /account 200 in 671ms
+ GET /cart 200 in 413ms
+ GET /wishlist 200 in 419ms
+ GET /checkout 200 in 508ms
+ GET /account/send-product 200 in 189ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1558ms (2180 modules)
+ GET /does-not-exist 404 in 2456ms
+ GET / 200 in 368ms
+ GET /does-not-exist 404 in 420ms
+ GET / 200 in 555ms
+ GET /products?search=chair 200 in 699ms
+ GET / 200 in 1381ms
+ GET / 200 in 593ms
+ GET /products 200 in 363ms
+ GET / 200 in 753ms
+ GET /account/send-product 200 in 396ms
+ GET / 200 in 510ms
+ ○ Compiling /products/[id] ...
+ ✓ Compiled /products/[id] in 4.5s (2234 modules)
+ GET / 200 in 580ms
+ GET /products/pr18 200 in 8369ms
+ ✓ Compiled in 4.1s (2229 modules)
+ ✓ Compiled in 1883ms (1020 modules)
+ ✓ Compiled in 4.8s (2229 modules)
+ ✓ Compiled in 2.8s (2229 modules)
+ ✓ Compiled in 1493ms (1020 modules)
+ ✓ Compiled in 2.8s (2229 modules)
+ ✓ Compiled in 2.1s (2229 modules)
+ ✓ Compiled in 2s (2229 modules)
+ ✓ Compiled in 1908ms (2229 modules)
+ ✓ Compiled in 3.1s (2229 modules)
+ ✓ Compiled in 2.1s (2229 modules)
+ ✓ Compiled in 3.4s (2229 modules)
+ ✓ Compiled in 1856ms (2229 modules)
+ ✓ Compiled in 2.6s (2229 modules)
+ ✓ Compiled in 2.7s (2229 modules)
+ ✓ Compiled in 2.6s (2229 modules)
+ ✓ Compiled in 2.9s (2229 modules)
+ ✓ Compiled in 1757ms (1020 modules)
+ ✓ Compiled in 2.5s (2229 modules)
+ GET / 200 in 520ms
+ ○ Compiling /account ...
+ ✓ Compiled /account in 1940ms (1214 modules)
+ ✓ Compiled (1227 modules)
+ ⨯ Error: Cannot find module './331.js'
+Require stack:
+- D:\YourMarket\.next\server\webpack-runtime.js
+- D:\YourMarket\.next\server\app\products\page.js
+- D:\YourMarket\node_modules\next\dist\server\require.js
+- D:\YourMarket\node_modules\next\dist\server\load-components.js
+- D:\YourMarket\node_modules\next\dist\build\utils.js
+- D:\YourMarket\node_modules\next\dist\build\swc\options.js
+- D:\YourMarket\node_modules\next\dist\build\swc\index.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\parse-module.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\get-page-static-info.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-server.js
+- D:\YourMarket\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (D:\YourMarket\.next\server\app\products\page.js:2:13252)
+    at Object.<anonymous> (D:\YourMarket\.next\server\app\products\page.js:2:13314) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/products'
+}
+ ⨯ Error: Cannot find module './331.js'
+Require stack:
+- D:\YourMarket\.next\server\webpack-runtime.js
+- D:\YourMarket\.next\server\app\products\page.js
+- D:\YourMarket\node_modules\next\dist\server\require.js
+- D:\YourMarket\node_modules\next\dist\server\load-components.js
+- D:\YourMarket\node_modules\next\dist\build\utils.js
+- D:\YourMarket\node_modules\next\dist\build\swc\options.js
+- D:\YourMarket\node_modules\next\dist\build\swc\index.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\parse-module.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\get-page-static-info.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-server.js
+- D:\YourMarket\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (D:\YourMarket\.next\server\app\account\send-product\page.js:2:31195)
+    at Object.<anonymous> (D:\YourMarket\.next\server\app\account\send-product\page.js:2:31257) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/account/send-product'
+}
+ ○ Compiling /_error ...
+ GET /wishlist 200 in 4481ms
+ GET /cart 200 in 4481ms
+ GET /account 200 in 4483ms
+ ⨯ Error: Cannot find module './331.js'
+Require stack:
+- D:\YourMarket\.next\server\webpack-runtime.js
+- D:\YourMarket\.next\server\app\products\page.js
+- D:\YourMarket\node_modules\next\dist\server\require.js
+- D:\YourMarket\node_modules\next\dist\server\load-components.js
+- D:\YourMarket\node_modules\next\dist\build\utils.js
+- D:\YourMarket\node_modules\next\dist\build\swc\options.js
+- D:\YourMarket\node_modules\next\dist\build\swc\index.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\parse-module.js
+- D:\YourMarket\node_modules\next\dist\build\analysis\get-page-static-info.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- D:\YourMarket\node_modules\next\dist\server\lib\router-server.js
+- D:\YourMarket\node_modules\next\dist\server\lib\start-server.js
+    at <unknown> (D:\YourMarket\.next\server\app\products\page.js:2:13252)
+    at Object.<anonymous> (D:\YourMarket\.next\server\app\products\page.js:2:13314) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array],
+  page: '/products'
+}
+ ✓ Compiled /_error in 3.1s (2594 modules)
+ GET /products 500 in 7792ms
+ GET /account/send-product 500 in 7782ms
+ GET /products 500 in 2710ms
+ GET /cart 200 in 1217ms
+ GET /account 200 in 351ms
+ GET /checkout 200 in 363ms
+ GET /account/send-product 200 in 481ms
+ GET / 200 in 736ms
+ GET /products 200 in 535ms
+ GET /cart 200 in 394ms
+ GET /account 200 in 382ms
+ GET /checkout 200 in 411ms
+ GET /account/send-product 200 in 741ms
+ GET / 200 in 488ms
+ GET /products 200 in 425ms
+ GET /cart 200 in 346ms
+ GET /account 200 in 404ms
+ GET /checkout 200 in 328ms
+ GET /account/send-product 200 in 332ms
+ GET / 200 in 486ms
+ GET /products 200 in 432ms
+ GET /cart 200 in 372ms
+ GET /account 200 in 374ms
+ GET /checkout 200 in 355ms
+ GET /account/send-product 200 in 337ms
+ GET / 200 in 575ms
+ GET /products 200 in 555ms
+ GET /cart 200 in 526ms
+ GET /account 200 in 493ms
+ GET /checkout 200 in 371ms
+ GET /account/send-product 200 in 354ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\YourMarket\.next\cache\webpack\client-development\0.pack.gz_' -> 'D:\YourMarket\.next\cache\webpack\client-development\0.pack.gz'
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'D:\YourMarket\.next\cache\webpack\server-development\10.pack.gz_' -> 'D:\YourMarket\.next\cache\webpack\server-development\10.pack.gz'
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+ GET / 500 in 5084ms
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 367ms
+ GET / 500 in 74ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 178ms
+ GET / 500 in 59ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 173ms
+ GET / 500 in 61ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 189ms
+ GET / 500 in 61ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 183ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 186ms
+ GET / 500 in 57ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 189ms
+ GET / 500 in 70ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 176ms
+ GET / 500 in 69ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 166ms
+ GET / 500 in 57ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 165ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 189ms
+ GET / 500 in 60ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 187ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 188ms
+ GET / 500 in 70ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 182ms
+ GET / 500 in 73ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 163ms
+ GET / 500 in 57ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 167ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 187ms
+ GET / 500 in 59ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 206ms
+ GET / 500 in 69ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 188ms
+ GET / 500 in 69ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 185ms
+ GET / 500 in 67ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 171ms
+ GET / 500 in 58ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 173ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 193ms
+ GET / 500 in 57ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 189ms
+ GET / 500 in 54ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 180ms
+ GET / 500 in 73ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 186ms
+ GET / 500 in 72ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 164ms
+ GET / 500 in 56ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 186ms
+ GET / 500 in 65ms
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\app-paths-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\app-paths-manifest.json',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\server\pages-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\server\\pages-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open 'D:\YourMarket\.next\routes-manifest.json'] {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'D:\\YourMarket\\.next\\routes-manifest.json'
+}
+ GET / 500 in 190ms
+ GET / 500 in 57ms
+[?25h
