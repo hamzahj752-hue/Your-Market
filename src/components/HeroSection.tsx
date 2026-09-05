@@ -93,10 +93,10 @@ export default function HeroSection() {
   if (slideCount === 0) return null;
 
   return (
-    <section className="pt-2 sm:pt-4 md:pt-6" aria-label="Featured banners">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6">
+    <section className="pt-1" aria-label="Featured banners">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4">
         <div
-          className="relative w-full overflow-hidden rounded-2xl md:rounded-3xl bg-muted/40 shadow-card-lg select-none group"
+          className="relative w-full overflow-hidden rounded-xl md:rounded-2xl bg-muted/40 shadow-sm select-none group"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           onMouseEnter={() => setPaused(true)}
@@ -115,7 +115,7 @@ export default function HeroSection() {
               const isActive = i === idx;
               const content = (
                 <>
-                  <div className="relative h-40 sm:h-56 md:h-72 lg:h-96 w-full">
+                  <div className="relative h-32 sm:h-48 md:h-64 lg:h-80 w-full">
                     <AppImage
                       src={b.image_url}
                       alt={b.title || 'Your Market'}

@@ -77,10 +77,10 @@ export default function PromoBannerSection() {
   if (count === 0) return null;
 
   return (
-    <section className="px-3 sm:px-6 pt-3" aria-label="Promotions">
+    <section className="px-2 sm:px-4 pt-1" aria-label="Promotions">
       <div className="max-w-7xl mx-auto">
         <div
-          className="relative w-full overflow-hidden rounded-2xl md:rounded-3xl bg-muted/40 select-none group"
+          className="relative w-full overflow-hidden rounded-xl md:rounded-2xl bg-muted/40 select-none group"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           onMouseEnter={() => setPaused(true)}
@@ -100,7 +100,7 @@ export default function PromoBannerSection() {
               const safePath = getSafeInternalPath(p.cta_url, '');
               const content = (
                 <>
-                  <div className="relative h-32 sm:h-44 md:h-56 w-full">
+                  <div className="relative h-20 sm:h-28 md:h-36 w-full">
                     {p.image_url ? (
                       <AppImage
                         src={p.image_url}

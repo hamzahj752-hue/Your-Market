@@ -339,7 +339,7 @@ export default function SendProductPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20 flex items-center justify-center">
+        <main className="flex-1 pb-24 lg:pb-0 flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
             <p className="text-sm text-muted-foreground">Loading...</p>
@@ -354,13 +354,13 @@ export default function SendProductPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20">
+        <main className="flex-1 pb-24 lg:pb-0">
           <div className="max-w-lg mx-auto px-4 sm:px-6">
-            <div className="bg-card rounded-3xl card-shadow p-6 md:p-8 text-center">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
-                <Icon name="PaperAirplaneIcon" size={32} className="text-primary" />
+            <div className="bg-card rounded-xl border border-border/50 p-4 md:p-5 text-center">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
+                <Icon name="PaperAirplaneIcon" size={24} className="text-primary" />
               </div>
-              <h1 className="text-2xl font-800 mb-2">Send Your Product</h1>
+              <h1 className="text-lg font-800 mb-2">Send Your Product</h1>
               <p className="text-muted-foreground text-sm mb-2">Earn with YourMarket</p>
               <p className="text-sm text-muted-foreground mb-8">
                 Sign in to submit your product for review. YourMarket will review the details before
@@ -369,7 +369,7 @@ export default function SendProductPage() {
               <button
                 type="button"
                 onClick={() => setShowAuth(true)}
-                className="btn-primary px-8 py-3 w-full"
+                className="btn-primary px-8 py-2.5 w-full"
               >
                 Continue with Google
               </button>
@@ -399,13 +399,13 @@ export default function SendProductPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20">
+        <main className="flex-1 pb-24 lg:pb-0">
           <div className="max-w-lg mx-auto px-4 sm:px-6">
-            <div className="bg-card rounded-3xl card-shadow p-6 md:p-8 text-center">
+            <div className="bg-card rounded-xl border border-border/50 p-4 md:p-5 text-center">
               <div className="w-16 h-16 mx-auto rounded-full bg-success/10 flex items-center justify-center mb-5">
                 <Icon name="CheckCircleIcon" size={36} className="text-success" />
               </div>
-              <h1 className="text-2xl font-800 mb-3">Product Submitted for Review</h1>
+              <h1 className="text-lg font-800 mb-3">Product Submitted for Review</h1>
               <p className="text-sm text-muted-foreground mb-2">
                 Thank you for your submission! YourMarket will review the details before the product
                 can be published.
@@ -437,7 +437,7 @@ export default function SendProductPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="flex-1 pt-28 pb-20">
+      <main className="flex-1 pb-24 lg:pb-0">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
@@ -448,8 +448,8 @@ export default function SendProductPage() {
                 <Icon name="ArrowLeftIcon" size={20} className="text-muted-foreground" />
               </Link>
               <div>
-                <h1 className="text-xl md:text-2xl font-800">Send Your Product</h1>
-                <p className="text-sm text-muted-foreground">Earn with YourMarket</p>
+                <h1 className="text-lg font-800">Send Your Product</h1>
+                <p className="text-xs text-muted-foreground">Earn with YourMarket</p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground ml-11">
@@ -457,7 +457,7 @@ export default function SendProductPage() {
             </p>
           </div>
 
-          <div className="mb-5">
+          <div className="mb-3">
             <div className="flex items-center justify-between mb-2">
               {WIZARD_STEPS.map((s) => (
                 <button
@@ -473,12 +473,12 @@ export default function SendProductPage() {
                       goNext();
                     }
                   }}
-                  className={`flex-1 text-center text-[11px] font-700 transition-colors ${
+                  className={`flex-1 text-center text-[10px] font-700 transition-colors ${
                     step === s.n ? 'text-primary' : 'text-muted-foreground'
                   }`}
                 >
                   <span
-                    className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-full text-xs font-800 border-2 transition-colors ${
+                    className={`mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-800 border-2 transition-colors ${
                       step > s.n
                         ? 'bg-primary border-primary text-primary-foreground'
                         : step === s.n
@@ -507,7 +507,7 @@ export default function SendProductPage() {
           )}
 
           {step === 1 && (
-            <section className="bg-card rounded-2xl card-shadow p-5 mb-4">
+            <section className="bg-card rounded-lg border border-border/50 p-4 mb-3">
               <h2 className="text-sm font-800 text-foreground mb-1 flex items-center gap-2">
                 <Icon name="UserIcon" size={18} className="text-primary" />
                 Your Information
@@ -527,7 +527,7 @@ export default function SendProductPage() {
                     onChange={(e) => updateField('customerName', e.target.value)}
                     placeholder="Your full name"
                     maxLength={100}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
@@ -539,7 +539,7 @@ export default function SendProductPage() {
                     value={form.customerEmail}
                     onChange={(e) => updateField('customerEmail', e.target.value)}
                     placeholder="your@email.com"
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
@@ -561,7 +561,7 @@ export default function SendProductPage() {
           )}
 
           {step === 2 && (
-            <section className="bg-card rounded-2xl card-shadow p-5 mb-4">
+            <section className="bg-card rounded-lg border border-border/50 p-4 mb-3">
               <h2 className="text-sm font-800 text-foreground mb-4 flex items-center gap-2">
                 <Icon name="TagIcon" size={18} className="text-primary" />
                 Product Details
@@ -577,7 +577,7 @@ export default function SendProductPage() {
                     onChange={(e) => updateField('productName', e.target.value)}
                     placeholder="e.g. Samsung Galaxy S24"
                     maxLength={150}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
@@ -587,7 +587,7 @@ export default function SendProductPage() {
                   <select
                     value={form.category}
                     onChange={(e) => updateField('category', e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors appearance-none"
                   >
                     <option value="">Select a category</option>
                     {categories.map((cat) => (
@@ -606,7 +606,7 @@ export default function SendProductPage() {
                     value={form.brand}
                     onChange={(e) => updateField('brand', e.target.value)}
                     placeholder="e.g. Samsung, Apple"
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
                 <div>
@@ -619,7 +619,7 @@ export default function SendProductPage() {
                         key={c}
                         type="button"
                         onClick={() => updateField('condition', c)}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-600 border transition-colors ${
+                        className={`flex-1 py-2 rounded-lg text-sm font-600 border transition-colors ${
                           form.condition === c
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-background text-muted-foreground border-border hover:border-primary/40'
@@ -642,7 +642,7 @@ export default function SendProductPage() {
                       value={form.expectedPrice}
                       onChange={(e) => updateField('expectedPrice', e.target.value)}
                       placeholder="0.00"
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                     />
                   </div>
                   <div>
@@ -656,7 +656,7 @@ export default function SendProductPage() {
                       value={form.quantity}
                       onChange={(e) => updateField('quantity', e.target.value)}
                       placeholder="1"
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                     />
                   </div>
                 </div>
@@ -670,7 +670,7 @@ export default function SendProductPage() {
                     placeholder="Describe your product, its features, and condition..."
                     rows={4}
                     maxLength={2000}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1 text-right">
                     {form.description.length}/2000
@@ -685,7 +685,7 @@ export default function SendProductPage() {
                     value={form.city}
                     onChange={(e) => updateField('city', e.target.value)}
                     placeholder="e.g. Kathmandu, Pokhara"
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
               </div>
@@ -693,7 +693,7 @@ export default function SendProductPage() {
           )}
 
           {step === 3 && (
-            <section className="bg-card rounded-2xl card-shadow p-5 mb-4">
+            <section className="bg-card rounded-lg border border-border/50 p-4 mb-3">
               <h2 className="text-sm font-800 text-foreground mb-4 flex items-center gap-2">
                 <Icon name="PhotoIcon" size={18} className="text-primary" />
                 Product Images *{' '}
@@ -707,11 +707,11 @@ export default function SendProductPage() {
                 MB each.
               </p>
 
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-3 gap-2">
                 {images.map((img, index) => (
                   <div
                     key={index}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted group"
+                    className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -745,7 +745,7 @@ export default function SendProductPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary/40 hover:bg-primary/5 transition-colors"
                   >
                     <Icon name="PlusIcon" size={22} className="text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground font-600">Add</span>
@@ -765,7 +765,7 @@ export default function SendProductPage() {
           )}
 
           {step === 4 && (
-            <section className="bg-card rounded-2xl card-shadow p-5 mb-4">
+            <section className="bg-card rounded-lg border border-border/50 p-4 mb-3">
               <h2 className="text-sm font-800 text-foreground mb-4 flex items-center gap-2">
                 <Icon name="CheckCircleIcon" size={18} className="text-primary" />
                 Review & Submit
@@ -807,14 +807,14 @@ export default function SendProductPage() {
               <button
                 type="button"
                 onClick={goBack}
-                className="w-full py-3 text-sm font-700 rounded-full border border-border bg-card text-foreground mb-3 transition-colors hover:bg-muted inline-flex items-center justify-center"
+                className="w-full py-2.5 text-sm font-700 rounded-full border border-border bg-card text-foreground mb-3 transition-colors hover:bg-muted inline-flex items-center justify-center"
               >
                 Back
               </button>
             )}
 
             {step < 4 && (
-              <button type="button" onClick={goNext} className="btn-primary w-full py-3.5 text-sm">
+              <button type="button" onClick={goNext} className="btn-primary w-full py-3 text-sm">
                 Continue
               </button>
             )}
@@ -824,7 +824,7 @@ export default function SendProductPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting || isUploading || hasImageErrors}
-                className="btn-primary w-full py-3.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full py-3 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="inline-flex items-center gap-2">

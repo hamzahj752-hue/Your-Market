@@ -201,13 +201,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
 
     const applyUserId = async (id: string | null) => {
+      const previousUserId = userIdRef.current;
       userIdRef.current = id;
 
       if (!id) {
-        // On logout, drop the current user's cart so a different user signing
-        // in on this device never inherits someone else's items.
-        hydratedRef.current = false;
-        setItems([]);
+        // Only drop the cart on an actual logout transition (signed-in -> null).
+        // A fresh guest load also fires INITIAL_SESSION with null and must keep
+        // the local (guest) cart untouched.
+        if (previousUserId) {
+          hydratedRef.current = false;
+          setItems([]);
+        }
         return;
       }
 

@@ -32,7 +32,7 @@ function CartContent() {
     const load = async () => {
       const [settingsRes, productsRes] = await Promise.all([
         supabase.from('store_settings').select('free_shipping_threshold').limit(1).maybeSingle(),
-        supabase.from('products').select('id, name, image, alt, price').limit(8),
+        supabase.from('products').select('id, name, image, price').limit(8),
       ]);
       if (cancelled) return;
       if (settingsRes.data) {
@@ -41,7 +41,10 @@ function CartContent() {
       if (!productsRes.error && productsRes.data) {
         const cartIds = new Set(items.map((i) => i.id));
         setRecommendedProducts(
-          (productsRes.data as RecommendedProduct[]).filter((p) => !cartIds.has(p.id)).slice(0, 3)
+          (productsRes.data as RecommendedProduct[])
+            .filter((p) => !cartIds.has(p.id))
+            .slice(0, 3)
+            .map((p) => ({ ...p, alt: null }))
         );
       }
     };
@@ -53,21 +56,21 @@ function CartContent() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
         <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
           <Icon name="ShoppingCartIcon" size={40} className="text-muted-foreground/40" />
         </div>
 
         <h2 className="text-2xl font-800 text-foreground mb-3">Your cart is empty</h2>
 
-        <p className="text-muted-foreground text-base mb-8 max-w-sm">
+        <p className="text-muted-foreground text-sm mb-8 max-w-sm">
           Looks like you haven&apos;t added anything yet. Browse our products and find something you
           love.
         </p>
 
         <Link
           href="/products"
-          className="btn-primary text-base px-8 py-4 inline-flex items-center justify-center gap-2"
+          className="btn-primary text-sm px-8 py-3 inline-flex items-center justify-center gap-2"
         >
           Start Shopping
           <Icon name="ArrowRightIcon" size={18} />
@@ -84,10 +87,10 @@ function CartContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-800 text-foreground">Shopping Cart</h1>
+          <h1 className="text-lg md:text-xl font-800 text-foreground">Shopping Cart</h1>
 
           <p className="text-muted-foreground text-sm mt-1">
             {items.reduce((a, i) => a + i.quantity, 0)} items in your cart
@@ -117,26 +120,26 @@ function CartContent() {
             <CartItemRow key={cartKey(item)} item={item} />
           ))}
 
-          <div className="grid grid-cols-3 gap-3 pt-4">
+          <div className="grid grid-cols-3 gap-2 pt-4">
             {freeShippingThreshold > 0 && (
-              <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
-                <Icon name="TruckIcon" size={18} className="text-primary" />
-                <span className="text-xs text-muted-foreground font-600 leading-tight">
+              <div className="bg-white rounded-xl p-2 card-shadow flex flex-col items-center text-center gap-1.5">
+                <Icon name="TruckIcon" size={16} className="text-primary" />
+                <span className="text-[11px] text-muted-foreground font-600 leading-tight break-words">
                   Free shipping on {money(freeShippingThreshold)}+
                 </span>
               </div>
             )}
 
-            <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
-              <Icon name="BanknotesIcon" size={18} className="text-green-600" />
-              <span className="text-xs text-muted-foreground font-600 leading-tight">
+            <div className="bg-white rounded-xl p-2 card-shadow flex flex-col items-center text-center gap-1.5">
+              <Icon name="BanknotesIcon" size={16} className="text-green-600" />
+              <span className="text-[11px] text-muted-foreground font-600 leading-tight break-words">
                 Cash on Delivery
               </span>
             </div>
 
-            <div className="bg-white rounded-xl p-3 card-shadow flex flex-col items-center text-center gap-1.5">
-              <Icon name="ShieldCheckIcon" size={18} className="text-primary" />
-              <span className="text-xs text-muted-foreground font-600 leading-tight">
+            <div className="bg-white rounded-xl p-2 card-shadow flex flex-col items-center text-center gap-1.5">
+              <Icon name="ShieldCheckIcon" size={16} className="text-primary" />
+              <span className="text-[11px] text-muted-foreground font-600 leading-tight break-words">
                 Secure checkout
               </span>
             </div>
@@ -154,10 +157,10 @@ function CartContent() {
                   <Link
                     key={rec.id}
                     href={`/products/${rec.id}`}
-                    className="flex-shrink-0 w-40 group"
+                    className="flex-shrink-0 w-36 group"
                   >
                     <div className="bg-white rounded-xl overflow-hidden card-shadow product-card-hover">
-                      <div className="relative h-28 overflow-hidden bg-muted/30">
+                      <div className="relative h-24 overflow-hidden bg-muted/30">
                         <img
                           src={rec.image}
                           alt={rec.alt || rec.name}
@@ -195,7 +198,7 @@ export default function CartPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      <main className="flex-1 pt-24 md:pt-28 pb-16 lg:pb-0">
+      <main className="flex-1 pb-24 lg:pb-0">
         <CartContent />
       </main>
 

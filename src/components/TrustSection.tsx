@@ -114,21 +114,21 @@ export default function TrustSection() {
     <section className="section-pad bg-muted/30" aria-labelledby="trust-heading">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Trust Badges */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {trustBadges.map((badge) => (
             <div
               key={badge.label}
-              className="bg-white rounded-2xl p-4 md:p-5 card-shadow flex flex-col items-center text-center"
+              className="bg-white rounded-xl p-2.5 md:p-3 card-shadow flex flex-col items-center text-center"
             >
-              <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+              <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
                 <Icon
                   name={badge.icon as Parameters<typeof Icon>[0]['name']}
-                  size={24}
+                  size={18}
                   className="text-primary"
                 />
               </div>
-              <h3 className="text-sm font-700 text-foreground mb-0.5">{badge.label}</h3>
-              <p className="text-xs text-muted-foreground">{badge.sub}</p>
+              <h3 className="text-xs font-700 text-foreground mb-0.5">{badge.label}</h3>
+              <p className="text-[10px] text-muted-foreground">{badge.sub}</p>
             </div>
           ))}
         </div>
@@ -136,7 +136,7 @@ export default function TrustSection() {
         {/* Testimonials (only from CMS — never fabricated) */}
         {testimonials.length > 0 && (
           <>
-            <div className="flex flex-col lg:flex-row items-center gap-10 mt-16">
+            <div className="flex flex-col lg:flex-row items-center gap-10 mt-6">
               {/* Left: heading */}
               <div className="lg:w-1/3 flex-shrink-0 w-full">
                 <span className="text-accent font-700 text-sm uppercase tracking-widest mb-3 block">

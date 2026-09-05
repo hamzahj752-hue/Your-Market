@@ -60,11 +60,11 @@ export default function OrderSummary() {
     : 100;
 
   return (
-    <div className="bg-card rounded-2xl card-shadow p-6 sticky top-24">
-      <h2 className="text-lg font-800 text-foreground mb-6">Order Summary</h2>
+    <div className="bg-card rounded-lg card-shadow p-4 sticky top-20">
+      <h2 className="text-base font-800 text-foreground mb-4">Order Summary</h2>
 
       {/* Summary */}
-      <div className="space-y-3 mb-5">
+      <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
           <span className="font-600 text-foreground">{money(subtotal)}</span>
@@ -87,7 +87,7 @@ export default function OrderSummary() {
         </div>
 
         {savings > 0 && (
-          <div className="flex justify-between text-sm bg-green-50 rounded-xl px-3 py-2">
+          <div className="flex justify-between text-sm bg-green-50 rounded-xl px-2.5 py-1.5">
             <span className="text-green-700 font-600 flex items-center gap-1">
               <Icon name="CheckBadgeIcon" size={14} />
               You&apos;re saving
@@ -100,7 +100,7 @@ export default function OrderSummary() {
 
       {/* Free Shipping */}
       {shipping > 0 ? (
-        <div className="mb-5 bg-muted/50 rounded-xl p-3">
+        <div className="mb-4 bg-muted/50 rounded-xl p-2.5">
           <p className="text-xs text-muted-foreground font-600 mb-2">
             Add <span className="text-primary font-800">{money(remainingForFreeShipping)}</span>{' '}
             more for FREE shipping
@@ -117,7 +117,7 @@ export default function OrderSummary() {
         </div>
       ) : (
         hasFreeShippingThreshold && (
-          <div className="mb-5 bg-green-50 rounded-xl p-3">
+          <div className="mb-4 bg-green-50 rounded-xl p-2.5">
             <p className="text-xs text-green-700 font-700 flex items-center gap-2">
               <Icon name="CheckCircleIcon" size={15} />
               You&apos;ve unlocked FREE shipping!
@@ -126,30 +126,27 @@ export default function OrderSummary() {
         )
       )}
 
-      <div className="border-t border-border my-4" />
+      <div className="border-t border-border my-3" />
 
       {/* Total */}
-      <div className="flex justify-between items-baseline mb-6">
+      <div className="flex justify-between items-baseline mb-4">
         <span className="text-base font-800 text-foreground">Total</span>
 
         <span className="text-2xl font-800 text-primary">{money(total)}</span>
       </div>
 
       {/* Checkout */}
-      <Link
-        href="/checkout"
-        className="btn-primary w-full justify-center text-base py-4 rounded-2xl"
-      >
+      <Link href="/checkout" className="btn-primary w-full justify-center text-sm py-3 rounded-xl">
         Proceed to Checkout
         <Icon name="LockClosedIcon" size={16} />
       </Link>
 
       {/* Payment Method */}
       <div className="flex items-center justify-center gap-2 mt-4">
-        <span className="px-3 py-1.5 rounded-lg bg-muted text-xs font-700">Cash on Delivery</span>
+        <span className="px-2.5 py-1 rounded-lg bg-muted text-xs font-700">Cash on Delivery</span>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
+      <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
         <Icon name="ShieldCheckIcon" size={13} />
         Your order is validated before confirmation.
       </p>

@@ -10,9 +10,9 @@ export default function CartItemRow({ item }: { item: CartItemType }) {
   const key = cartKey(item);
 
   return (
-    <div className="flex gap-3 p-3 bg-card rounded-2xl card-shadow group">
+    <div className="flex gap-2.5 p-2.5 bg-white rounded-lg border border-border/60 group">
       {/* Image */}
-      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-muted/30">
+      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted/30">
         <AppImage
           src={item.variantImage || item.image}
           alt={`${item.name} product image`}

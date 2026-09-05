@@ -312,7 +312,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-28 pb-20 px-4">
+        <main className="pb-24 lg:pb-0 px-4">
           <div className="max-w-2xl mx-auto bg-card rounded-3xl card-shadow p-8 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-5">
               <Icon name="CheckCircleIcon" size={32} className="text-green-600" />
@@ -363,7 +363,7 @@ export default function CheckoutPage() {
     return (
       <>
         <Header />
-        <main className="min-h-screen pt-32 text-center px-4">
+        <main className="min-h-screen pb-24 lg:pb-0 text-center px-4">
           <div className="max-w-md mx-auto">
             <Icon
               name="LockClosedIcon"
@@ -389,7 +389,7 @@ export default function CheckoutPage() {
     return (
       <>
         <Header />
-        <main className="min-h-screen pt-32 text-center px-4">
+        <main className="min-h-screen pb-24 lg:pb-0 text-center px-4">
           <h1 className="text-2xl font-800">Your cart is empty</h1>
           <Link href="/products" className="btn-primary inline-flex mt-5">
             Shop Products
@@ -416,10 +416,10 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="pt-24 sm:pt-28 pb-40 lg:pb-20">
+      <main className="pb-[160px] lg:pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <h1 className="text-2xl sm:text-3xl font-900 mb-2">Checkout</h1>
-          <p className="text-sm text-muted-foreground mb-8">
+          <h1 className="text-xl sm:text-2xl font-900 mb-1">Checkout</h1>
+          <p className="text-sm text-muted-foreground mb-4">
             Complete your delivery details to place your order.
           </p>
 
@@ -427,12 +427,12 @@ export default function CheckoutPage() {
             {/* ── Left column: form ── */}
             <section className="space-y-6">
               {/* Contact / delivery details */}
-              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
-                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     1
                   </span>
-                  <h2 className="text-lg font-800">Delivery Details</h2>
+                  <h2 className="text-base font-800">Delivery Details</h2>
                 </div>
 
                 {loadingUser ? (
@@ -451,7 +451,7 @@ export default function CheckoutPage() {
                             return (
                               <label
                                 key={addr.id}
-                                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
+                                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                                   active ? 'border-primary bg-primary/5' : 'border-border'
                                 }`}
                               >
@@ -514,11 +514,11 @@ export default function CheckoutPage() {
                         <p className="text-xs font-700 uppercase tracking-widest text-muted-foreground mb-3">
                           New address
                         </p>
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="grid sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-sm font-600 mb-1.5">Full name</label>
                             <input
-                              className="input-search w-full"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                               placeholder="Full name"
                               value={name}
                               onChange={(e) => setName(e.target.value)}
@@ -547,7 +547,7 @@ export default function CheckoutPage() {
                           <div>
                             <label className="block text-sm font-600 mb-1.5">City</label>
                             <input
-                              className="input-search w-full"
+                              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                               placeholder="City"
                               value={city}
                               onChange={(e) => setCity(e.target.value)}
@@ -561,12 +561,12 @@ export default function CheckoutPage() {
               </div>
 
               {/* Payment method */}
-              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
-                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     2
                   </span>
-                  <h2 className="text-lg font-800">Payment Method</h2>
+                  <h2 className="text-base font-800">Payment Method</h2>
                 </div>
 
                 <div className="grid sm:grid-cols-3 gap-3">
@@ -575,7 +575,7 @@ export default function CheckoutPage() {
                       key={id}
                       type="button"
                       onClick={() => setMethod(id)}
-                      className={`p-4 rounded-xl border text-left font-700 transition-colors ${
+                      className={`p-3 rounded-lg border text-left font-700 transition-colors ${
                         method === id ? 'border-primary bg-primary/5' : 'border-border'
                       }`}
                     >
@@ -587,7 +587,7 @@ export default function CheckoutPage() {
                   ))}
 
                   {settings?.online_payment_enabled && (
-                    <div className="p-4 rounded-xl border border-dashed border-border text-left font-700 opacity-70">
+                    <div className="p-3 rounded-lg border border-dashed border-border text-left font-700 opacity-70">
                       Online Payment
                       <span className="block text-xs font-600 text-muted-foreground mt-1">
                         Coming soon
@@ -604,21 +604,21 @@ export default function CheckoutPage() {
               </div>
 
               {/* Items */}
-              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
-                  <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     3
                   </span>
-                  <h2 className="text-lg font-800">Order Items ({itemCount})</h2>
+                  <h2 className="text-base font-800">Order Items ({itemCount})</h2>
                 </div>
 
                 <div className="divide-y divide-border">
                   {items.map((i) => (
                     <div
                       key={i.id + ':' + (i.variantId || 'default')}
-                      className="flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                      className="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
                     >
-                      <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-muted/30 flex-shrink-0">
+                      <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-muted/30 flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={i.variantImage || i.image}
@@ -638,14 +638,14 @@ export default function CheckoutPage() {
                           Qty {i.quantity} × {money(i.price)}
                         </p>
                       </div>
-                      <b className="text-sm flex-shrink-0">{money(i.price * i.quantity)}</b>
+                      <b className="text-[13px] flex-shrink-0">{money(i.price * i.quantity)}</b>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Coupon */}
-              <div className="bg-card rounded-2xl card-shadow p-5 sm:p-7">
+              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
                 <label
                   htmlFor="checkout-coupon"
                   className="text-xs font-700 uppercase tracking-widest text-muted-foreground block mb-2"
@@ -658,7 +658,7 @@ export default function CheckoutPage() {
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   placeholder="Enter coupon code"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3.5 outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   Coupon is validated when you place your order.
@@ -676,7 +676,7 @@ export default function CheckoutPage() {
               <button
                 onClick={placeOrder}
                 disabled={!canSubmit}
-                className="btn-primary w-full justify-center py-4 disabled:opacity-50 hidden lg:inline-flex"
+                className="btn-primary w-full justify-center py-3 disabled:opacity-50 hidden lg:inline-flex"
               >
                 {submitting ? 'Placing order...' : 'Place Order'}
                 {!submitting && <Icon name="ShieldCheckIcon" size={18} />}
@@ -684,7 +684,7 @@ export default function CheckoutPage() {
             </section>
 
             {/* ── Right column: sticky order summary ── */}
-            <aside className="bg-card rounded-2xl card-shadow p-5 sm:p-7 lg:sticky lg:top-24">
+            <aside className="bg-card rounded-lg card-shadow p-4 lg:sticky lg:top-20">
               <h2 className="text-lg font-800 mb-5">Order Summary</h2>
 
               <div className="space-y-3 mb-5">
@@ -758,18 +758,20 @@ export default function CheckoutPage() {
 
       {/* ── Mobile sticky place-order bar ── */}
       <div
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 pt-3"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))' }}
+        className="lg:hidden fixed left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 pt-3"
+        style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-muted-foreground leading-tight">Total</p>
-            <p className="text-lg font-800 text-primary leading-tight">{money(total)}</p>
+        <div className="flex items-stretch gap-3">
+          <div className="flex flex-col justify-center flex-1 min-w-0">
+            <p className="text-[10px] font-700 text-muted-foreground uppercase tracking-wider leading-tight">
+              Total
+            </p>
+            <p className="text-lg font-800 text-primary leading-tight truncate">{money(total)}</p>
           </div>
           <button
             onClick={placeOrder}
             disabled={!canSubmit}
-            className="btn-primary flex-1 justify-center px-4 py-3.5 sm:py-4 disabled:opacity-50"
+            className="btn-primary flex-1 justify-center px-4 min-h-[46px] disabled:opacity-50"
           >
             {submitting ? 'Placing order...' : 'Place Order'}
             {!submitting && <Icon name="ShieldCheckIcon" size={18} />}

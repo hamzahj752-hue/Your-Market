@@ -117,7 +117,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="pt-28 pb-20 flex items-center justify-center">
+        <main className="pb-24 lg:pb-0 flex items-center justify-center">
           <p className="text-muted-foreground">Loading order...</p>
         </main>
         <Footer />
@@ -153,7 +153,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="pt-28 pb-20">
+      <main className="pb-24 lg:pb-0">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <Link
             href="/account"

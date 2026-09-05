@@ -351,7 +351,7 @@ export default function SubmissionsPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20 flex items-center justify-center">
+        <main className="flex-1 pb-24 lg:pb-0 flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
             <p className="text-sm text-muted-foreground">Loading submissions...</p>
@@ -366,7 +366,7 @@ export default function SubmissionsPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20">
+        <main className="flex-1 pb-24 lg:pb-0">
           <div className="max-w-lg mx-auto px-4 sm:px-6">
             <div className="bg-card rounded-3xl card-shadow p-6 md:p-8 text-center">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
@@ -409,7 +409,7 @@ export default function SubmissionsPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="flex-1 pt-28 pb-20">
+        <main className="flex-1 pb-24 lg:pb-0">
           <div className="max-w-2xl mx-auto px-4 sm:px-6">
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-2">
@@ -654,7 +654,7 @@ export default function SubmissionsPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="flex-1 pt-28 pb-20">
+      <main className="flex-1 pb-24 lg:pb-0">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 mb-6">
             <Link href="/account" className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">

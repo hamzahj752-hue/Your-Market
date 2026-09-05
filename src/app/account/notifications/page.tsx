@@ -65,7 +65,7 @@ export default function AccountNotificationsPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="flex-1 pt-28 pb-20">
+      <main className="flex-1 pb-24 lg:pb-0">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between mb-6">
             <div>

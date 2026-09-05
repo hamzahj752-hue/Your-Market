@@ -32,7 +32,7 @@ export default function WishlistPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
-      <main className="flex-1 pt-28 pb-20">
+      <main className="flex-1 pb-24 lg:pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div>

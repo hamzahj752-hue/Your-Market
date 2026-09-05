@@ -224,7 +224,7 @@ export default function ProductsPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
-      <main className="flex-1 pt-24 md:pt-28 pb-16 lg:pb-0">
+      <main className="flex-1 pb-24 lg:pb-0">
         <div className="bg-white border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
