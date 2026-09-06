@@ -9,6 +9,10 @@ import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import PasswordlessAuth from '@/components/auth/PasswordlessAuth';
+import RequestLocationPicker, {
+  resolveRequestLocation,
+  type SavedAddress,
+} from '@/components/LocationPicker/RequestLocationPicker';
 import {
   getSignedUrls,
   uploadSubmissionImage,
@@ -53,15 +57,9 @@ interface EditImageState {
 interface EditForm {
   productName: string;
   category: string;
-  brand: string;
-  condition: string;
-  expectedPrice: string;
   quantity: string;
-  description: string;
-  city: string;
 }
 
-const CONDITIONS = ['New', 'Like New', 'Used'];
 const MAX_IMAGES = 5;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -81,13 +79,13 @@ export default function SubmissionsPage() {
   const [editForm, setEditForm] = useState<EditForm>({
     productName: '',
     category: '',
-    brand: '',
-    condition: 'New',
-    expectedPrice: '',
     quantity: '1',
-    description: '',
-    city: '',
   });
+  const [editSavedAddresses, setEditSavedAddresses] = useState<SavedAddress[]>([]);
+  const [editSelectedAddressId, setEditSelectedAddressId] = useState<string | null>(null);
+  const [editUseNewAddress, setEditUseNewAddress] = useState(true);
+  const [editLocationAddress, setEditLocationAddress] = useState('');
+  const [editLocationCity, setEditLocationCity] = useState('');
   const [editImages, setEditImages] = useState<EditImageState[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
@@ -143,7 +141,29 @@ export default function SubmissionsPage() {
         if (data) setCategories(data.map((c) => c.name));
       };
       loadCategories();
+
+      if (user) {
+        let cancelled = false;
+        const loadAddresses = async () => {
+          const { data, error } = await supabase
+            .from('addresses')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('is_default', { ascending: false })
+            .order('created_at', { ascending: false });
+          if (!cancelled) {
+            if (!error && data && data.length > 0) {
+              setEditSavedAddresses(data as SavedAddress[]);
+            }
+          }
+        };
+        loadAddresses();
+        return () => {
+          cancelled = true;
+        };
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
   const formatDate = (date: string) => {
@@ -158,13 +178,13 @@ export default function SubmissionsPage() {
     setEditForm({
       productName: sub.product_name,
       category: sub.category,
-      brand: sub.brand || '',
-      condition: CONDITIONS.includes(sub.condition) ? sub.condition : 'New',
-      expectedPrice: String(sub.expected_price),
       quantity: String(sub.quantity),
-      description: sub.description || '',
-      city: sub.city || '',
     });
+    setEditSavedAddresses([]);
+    setEditSelectedAddressId(null);
+    setEditUseNewAddress(true);
+    setEditLocationAddress(sub.city || '');
+    setEditLocationCity('');
     setEditImages(
       (sub.image_urls || []).map((p) => ({
         preview: '',
@@ -183,13 +203,13 @@ export default function SubmissionsPage() {
     setEditForm({
       productName: '',
       category: '',
-      brand: '',
-      condition: 'New',
-      expectedPrice: '',
       quantity: '1',
-      description: '',
-      city: '',
     });
+    setEditSavedAddresses([]);
+    setEditSelectedAddressId(null);
+    setEditUseNewAddress(true);
+    setEditLocationAddress('');
+    setEditLocationCity('');
     setEditImages([]);
     setEditError('');
   };
@@ -244,22 +264,20 @@ export default function SubmissionsPage() {
       setEditError('Please select a category.');
       return;
     }
-    if (editForm.expectedPrice === '' || Number(editForm.expectedPrice) < 0) {
-      setEditError('Please enter a valid price.');
-      return;
-    }
     const qty = Number(editForm.quantity);
     if (!Number.isInteger(qty) || qty < 1) {
       setEditError('Quantity must be at least 1.');
       return;
     }
-    if (!CONDITIONS.includes(editForm.condition)) {
-      setEditError('Please select a valid condition.');
-      return;
-    }
-    const desc = editForm.description.trim();
-    if (!desc || desc.length < 10 || desc.length > 2000) {
-      setEditError('Description must be between 10 and 2000 characters.');
+    const { snapshot: locationSnapshot, error: locationError } = resolveRequestLocation({
+      savedAddresses: editSavedAddresses,
+      selectedAddressId: editSelectedAddressId,
+      useNewAddress: editUseNewAddress,
+      address: editLocationAddress,
+      city: editLocationCity,
+    });
+    if (locationError) {
+      setEditError(locationError);
       return;
     }
 
@@ -292,12 +310,8 @@ export default function SubmissionsPage() {
         .update({
           product_name: name,
           category: editForm.category,
-          brand: editForm.brand.trim() || null,
-          condition: editForm.condition,
-          expected_price: Number(editForm.expectedPrice),
           quantity: qty,
-          description: desc,
-          city: editForm.city.trim() || null,
+          city: locationSnapshot,
           image_urls: finalImages,
         })
         .eq('id', editing.id)
@@ -374,7 +388,7 @@ export default function SubmissionsPage() {
               </div>
               <h1 className="text-2xl font-800 mb-3">My Submissions</h1>
               <p className="text-sm text-muted-foreground mb-8">
-                Sign in to view your product submissions.
+                Sign in to view your product requests.
               </p>
               <button
                 type="button"
@@ -464,90 +478,41 @@ export default function SubmissionsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Brand
+                    Quantity *
                   </label>
                   <input
-                    type="text"
-                    value={editForm.brand}
-                    onChange={(e) => setEditForm((f) => ({ ...f, brand: e.target.value }))}
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={editForm.quantity}
+                    onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Condition *
-                  </label>
-                  <div className="flex gap-2">
-                    {CONDITIONS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setEditForm((f) => ({ ...f, condition: c }))}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-600 border transition-colors ${
-                          editForm.condition === c
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                      Price (Rs.) *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editForm.expectedPrice}
-                      onChange={(e) =>
-                        setEditForm((f) => ({ ...f, expectedPrice: e.target.value }))
-                      }
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                      Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={editForm.quantity}
-                      onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Description * <span className="opacity-60">(10–2000 characters)</span>
-                  </label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                    rows={4}
-                    maxLength={2000}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1 text-right">
-                    {editForm.description.length}/2000
+                <div className="pt-2 border-t border-border">
+                  <h3 className="text-sm font-800 text-foreground mb-3 flex items-center gap-2">
+                    <Icon name="MapPinIcon" size={18} className="text-primary" />
+                    Delivery Location
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Let us know where you&apos;d like the product delivered.
                   </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    City / Location
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.city}
-                    onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  <RequestLocationPicker
+                    savedAddresses={editSavedAddresses}
+                    selectedAddressId={editSelectedAddressId}
+                    useNewAddress={editUseNewAddress}
+                    onSelectSaved={(id) => {
+                      setEditSelectedAddressId(id);
+                      setEditUseNewAddress(false);
+                    }}
+                    onUseNew={() => {
+                      setEditSelectedAddressId(null);
+                      setEditUseNewAddress(true);
+                    }}
+                    address={editLocationAddress}
+                    onAddressChange={setEditLocationAddress}
+                    city={editLocationCity}
+                    onCityChange={setEditLocationCity}
                   />
                 </div>
               </div>
@@ -662,7 +627,7 @@ export default function SubmissionsPage() {
             </Link>
             <div className="flex-1">
               <h1 className="text-xl md:text-2xl font-800">My Submissions</h1>
-              <p className="text-sm text-muted-foreground">Track your product submissions</p>
+              <p className="text-sm text-muted-foreground">Track your product requests</p>
             </div>
             <Link href="/account/send-product" className="btn-primary px-4 py-2.5 text-sm">
               + New
@@ -674,12 +639,12 @@ export default function SubmissionsPage() {
               <div className="w-14 h-14 mx-auto rounded-2xl bg-muted flex items-center justify-center mb-4">
                 <Icon name="InboxIcon" size={28} className="text-muted-foreground" />
               </div>
-              <h2 className="font-800 mb-2">No Products Submitted Yet</h2>
+              <h2 className="font-800 mb-2">No Requests Yet</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                Submit your first product for review.
+                Send us your first product request and we&apos;ll help you find it.
               </p>
               <Link href="/account/send-product" className="btn-primary px-6 py-3 inline-block">
-                Send Your Product
+                Request a Product
               </Link>
             </div>
           ) : (

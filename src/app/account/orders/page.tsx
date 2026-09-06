@@ -1,0 +1,233 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import BottomNav from '@/components/BottomNav';
+import Icon from '@/components/ui/AppIcon';
+import { supabase } from '@/lib/supabase';
+
+interface Order {
+  id: string;
+  status?: string;
+  orderNumber?: string;
+  createdAt: string;
+  total: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  itemCount?: number;
+}
+
+type LoadState = 'loading' | 'ready' | 'error';
+
+// Dedicated customer My Orders page. Queries ONLY the current authenticated
+// user's own orders (same filter the Account page used) and reuses the existing
+// order card presentation + View Details route — no second order system.
+export default function AccountOrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      setLoadState('loading');
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        if (active) setNotLoggedIn(true);
+        setLoadState('ready');
+        return;
+      }
+      setNotLoggedIn(false);
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (active) setLoadState('error');
+        return;
+      }
+
+      const rows = data ?? [];
+      let itemCountMap: Record<string, number> = {};
+
+      if (rows.length > 0) {
+        const ids = rows.map((o) => o.id);
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('order_id, quantity')
+          .in('order_id', ids);
+
+        if (!itemsError && orderItems) {
+          itemCountMap = orderItems.reduce<Record<string, number>>((map, row) => {
+            map[row.order_id] = (map[row.order_id] || 0) + Number(row.quantity || 0);
+            return map;
+          }, {});
+        }
+      }
+
+      if (!active) return;
+
+      setOrders(
+        rows.map((order) => ({
+          id: order.id,
+          status: order.status,
+          orderNumber: order.order_number,
+          createdAt: order.created_at,
+          total: Number(order.total || 0),
+          paymentMethod: order.payment_method,
+          paymentStatus: order.payment_status,
+          itemCount: itemCountMap[order.id],
+        }))
+      );
+      setLoadState('ready');
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [reloadKey]);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <main className="flex-1 pb-24 lg:pb-0">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="mb-6">
+            <Link
+              href="/account"
+              className="inline-flex items-center gap-1.5 text-sm text-primary font-700 hover:underline mb-2"
+            >
+              <Icon name="ArrowLeftIcon" size={16} />
+              Back
+            </Link>
+            <h1 className="text-2xl md:text-3xl font-800">My Orders</h1>
+            <p className="text-sm text-muted-foreground mt-1">Track and manage your orders.</p>
+          </div>
+
+          {notLoggedIn ? (
+            <section className="bg-card rounded-3xl card-shadow p-10 text-center">
+              <Icon
+                name="ShoppingBagIcon"
+                size={40}
+                className="mx-auto mb-4 text-muted-foreground"
+              />
+              <h2 className="text-xl font-800 mb-2">Sign in to see your orders</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Log in to view your order history and track deliveries.
+              </p>
+              <Link href="/account" className="btn-primary inline-flex">
+                Go to Account
+              </Link>
+            </section>
+          ) : loadState === 'loading' ? (
+            <section className="bg-card rounded-3xl card-shadow p-10 text-center">
+              <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Loading your orders...</p>
+            </section>
+          ) : loadState === 'error' ? (
+            <section className="bg-card rounded-3xl card-shadow p-10 text-center">
+              <Icon
+                name="ExclamationTriangleIcon"
+                size={40}
+                className="mx-auto mb-4 text-red-500/60"
+              />
+              <h2 className="text-xl font-800 mb-2">Couldn&apos;t load orders</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Something went wrong while fetching your orders. Please try again.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="btn-outline inline-flex items-center gap-2"
+              >
+                <Icon name="ArrowPathIcon" size={16} />
+                Try Again
+              </button>
+            </section>
+          ) : orders.length === 0 ? (
+            <section className="bg-card rounded-3xl card-shadow p-10 text-center">
+              <Icon
+                name="ShoppingBagIcon"
+                size={40}
+                className="mx-auto mb-4 text-muted-foreground/40"
+              />
+              <h2 className="text-xl font-800 mb-2">No orders yet</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Your purchases will appear here after checkout.
+              </p>
+              <Link href="/products" className="btn-primary inline-flex">
+                Start Shopping
+              </Link>
+            </section>
+          ) : (
+            <section className="space-y-2.5">
+              {orders.map((order) => (
+                <Link
+                  key={order.id}
+                  href={`/account/orders/${order.id}`}
+                  className="block bg-white border border-border/60 rounded-lg p-3 hover:border-primary/40 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-800 break-words">
+                        {order.orderNumber ? `Order ${order.orderNumber}` : `Order #${order.id}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div className="sm:text-right shrink-0">
+                      <p className="text-sm font-800">
+                        रू{Number(order.total || 0).toLocaleString('en-IN')}
+                      </p>
+                      <span
+                        className={`text-xs font-800 ${
+                          order.status === 'Cancelled' || order.status === 'Refunded'
+                            ? 'text-red-600'
+                            : order.status === 'Delivered'
+                              ? 'text-green-600'
+                              : 'text-blue-600'
+                        }`}
+                      >
+                        {order.status || 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground flex items-center justify-between gap-2">
+                    <span className="break-words">
+                      {order.itemCount ?? 0} item(s)·{' '}
+                      {order.paymentMethod === 'cod'
+                        ? 'Cash on Delivery'
+                        : (order.paymentMethod || 'cod').replace(/^./, (c) => c.toUpperCase())}
+                      {order.paymentStatus ? (
+                        <span className="ml-1 capitalize">· {order.paymentStatus}</span>
+                      ) : null}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-primary font-700 text-xs shrink-0">
+                      View Details
+                      <Icon name="ChevronRightIcon" size={14} />
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </section>
+          )}
+        </div>
+      </main>
+      <Footer />
+      <BottomNav />
+    </div>
+  );
+}

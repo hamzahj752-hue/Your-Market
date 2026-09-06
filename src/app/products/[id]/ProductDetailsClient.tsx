@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 
 import ReviewsSection from '@/components/product/ReviewsSection';
+import ProductCard, { CardProduct } from '@/components/product/ProductCard';
 
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -82,6 +83,179 @@ export interface ProductVariant {
 
 const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
 
+const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+const NAME_TO_HEX: Record<string, string> = {
+  black: '#1f2937',
+  charcoal: '#374151',
+  graphite: '#4b5563',
+  navy: '#1e3a8a',
+  blue: '#2563eb',
+  indigo: '#4f46e5',
+  violet: '#8b5cf6',
+  purple: '#9333ea',
+  lavender: '#b4a7d6',
+  pink: '#ec4899',
+  rose: '#f43f5e',
+  red: '#dc2626',
+  burgundy: '#800020',
+  maroon: '#800000',
+  orange: '#ea580c',
+  amber: '#f59e0b',
+  gold: '#d4af37',
+  yellow: '#eab308',
+  olive: '#708238',
+  green: '#16a34a',
+  lime: '#84cc16',
+  teal: '#14b8a6',
+  cyan: '#06b6d4',
+  brown: '#92400e',
+  tan: '#d2b48c',
+  beige: '#d8c8a8',
+  cream: '#f5f0e1',
+  white: '#fafafa',
+  silver: '#c0c0c0',
+  gray: '#9ca3af',
+  grey: '#9ca3af',
+};
+
+const resolveColorValue = (colorName: string, colorVariants: ProductVariant[]): string | null => {
+  const value = colorVariants.find((variant) => variant.color_value)?.color_value?.trim() ?? '';
+
+  if (HEX_COLOR_RE.test(value)) {
+    return value;
+  }
+
+  const key = colorName.trim().toLowerCase();
+
+  const match = Object.entries(NAME_TO_HEX).find(([name]) => key === name || key.includes(name));
+
+  return match ? match[1] : null;
+};
+
+/* =========================================================
+   PREFERS REDUCED MOTION
+   ========================================================= */
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const update = () => setReduced(mq.matches);
+
+    update();
+
+    mq.addEventListener?.('change', update);
+
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+
+  return reduced;
+}
+
+/* =========================================================
+   STAGE IMAGE
+   ========================================================= */
+
+/*
+ * Plain, fully-controlled <img> for the animated product stage.
+ *
+ * - Renders the image visible IMMEDIATELY instead of gating it behind an
+ *   onLoad-flipped opacity state. For cached images the browser can finish
+ *   loading before React's delegated onLoad fires, which left the main
+ *   stage permanently blank (opacity-0) after a color/variant swap or when
+ *   the image was already in the HTTP cache. The premium enter/exit layer
+ *   animations on the wrapper supply all the motion, so no fade is lost.
+ * - Falls back to the product base image when a variant image fails,
+ *   then to a neutral placeholder if the base image is missing too.
+ * - Sanitizes src/fallbackSrc so null/undefined/empty/whitespace strings are
+ *   never passed to the browser (an empty src makes the page reload).
+ */
+function StageImage({
+  src,
+  alt,
+  fallbackSrc,
+  priority = false,
+  className = '',
+}: {
+  src: string;
+  alt?: string;
+  fallbackSrc?: string;
+  priority?: boolean;
+  className?: string;
+}) {
+  const [source, setSource] = useState<string>(() => (typeof src === 'string' ? src.trim() : ''));
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    setSource(typeof src === 'string' ? src.trim() : '');
+    setErrored(false);
+  }, [src]);
+
+  const handleError = useCallback(() => {
+    const fallback = typeof fallbackSrc === 'string' ? fallbackSrc.trim() : '';
+    if (fallback && source !== fallback) {
+      setSource(fallback);
+      return;
+    }
+    setErrored(true);
+  }, [fallbackSrc, source]);
+
+  /*
+   * Never pass an empty or whitespace-only src to the browser: doing so makes
+   * it reload the current page (a full document navigation) besides logging an
+   * "empty string passed to src" error. Fall back to the same neutral
+   * no-image placeholder rendered on error instead.
+   */
+  const sourceMissing = !source;
+
+  if (errored || sourceMissing) {
+    return (
+      <div
+        className={`flex h-full w-full flex-col items-center justify-center bg-slate-100 ${className}`}
+      >
+        <svg
+          width="36"
+          height="36"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-slate-300"
+          aria-hidden="true"
+        >
+          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+          <circle cx="9" cy="9" r="2" />
+          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- plain <img> required for the animated swap stage (variant fallback + exit/enter layers; the app already opts out of the Next image optimizer globally)
+    <img
+      src={source}
+      alt={alt ?? ''}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      draggable={false}
+      onError={handleError}
+      className={`h-full w-full object-contain p-1 sm:p-2 ${className}`}
+    />
+  );
+}
+
+/* =========================================================
+   MOVEMENT PREFERENCES (nominal durations)
+   ========================================================= */
+
+const IMG_EXIT_MS = 340;
+
 /* =========================================================
    PRODUCT DETAILS
    ========================================================= */
@@ -115,6 +289,26 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
   const touchStartX = useRef<number | null>(null);
 
+  const touchStartY = useRef<number | null>(null);
+
+  /* ---------------------------------------------------------
+     Premium image swap
+     --------------------------------------------------------- */
+
+  const reducedMotion = usePrefersReducedMotion();
+
+  /*
+   * The stage shows two stacked layers while a variant/gallery swap
+   * happens: the previous image animates out below while the new one
+   * enters above. The authoritative src comes from currentActiveSrc;
+   * these values only drive the visual transition, never product state.
+   */
+  const [shownSrc, setShownSrc] = useState('');
+  const [leavingSrc, setLeavingSrc] = useState<string | null>(null);
+  const [swapCount, setSwapCount] = useState(0);
+
+  const leavingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   /* ---------------------------------------------------------
      Variants
      --------------------------------------------------------- */
@@ -136,10 +330,10 @@ export default function ProductDetailsClient({ id }: { id: string }) {
   const purchaseActionsRef = useRef<HTMLDivElement | null>(null);
 
   /* ---------------------------------------------------------
-     Related products
+     All products (bottom section, current product excluded)
      --------------------------------------------------------- */
 
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   /* =========================================================
      VARIANT OPTIONS
@@ -250,6 +444,51 @@ export default function ProductDetailsClient({ id }: { id: string }) {
   const maxQty = effectiveStockQty > 0 ? effectiveStockQty : 1;
 
   /* =========================================================
+     VARIANT SELECTION HANDLERS
+     ========================================================= */
+
+  /*
+   * Selecting a size is a direct state change; the derived selectedVariant
+   * recomputes immediately. If the new size is not offered for the current
+   * color the product UX falls back to the existing disabled-option
+   * behaviour — the customer chooses a compatible size. A non-existent
+   * color+size combination is never created because the variant lookup is
+   * an intersection over real variant rows only.
+   */
+  const handleSizeSelect = (size: string) => {
+    setSelectedSize(size);
+    setQty(1);
+  };
+
+  /*
+   * Selecting a color updates the active variant state instantly. When the
+   * product also has a size/storage dimension and the currently selected
+   * value is not offered for the new color, the first genuinely compatible
+   * in-stock option is selected instead of silently forming an invalid
+   * combination.
+   */
+  const handleColorSelect = (color: string) => {
+    const candidates = variants.filter((variant) => variant.active && variant.color_name === color);
+
+    if (availableSizes.length > 0) {
+      const validSizes = [...new Set(candidates.map((variant) => variant.size).filter(Boolean))];
+
+      const currentValid = selectedSize && validSizes.includes(selectedSize);
+
+      if (!currentValid && validSizes.length > 0) {
+        const firstInStock = candidates.find(
+          (variant) => variant.stock_quantity > 0 && variant.size
+        )?.size;
+
+        setSelectedSize(firstInStock ?? validSizes[0]);
+      }
+    }
+
+    setSelectedColor(color);
+    setQty(1);
+  };
+
+  /* =========================================================
      MEDIA
      ========================================================= */
 
@@ -282,6 +521,85 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       ? ''
       : allImages[activeImage] || allImages[0] || product?.image || '';
 
+  /* ---------------------------------------------------------
+     IMAGE SWAP ORCHESTRATION
+     --------------------------------------------------------- */
+
+  /*
+   * Drives the premium exit/enter layers. Whenever the authoritative
+   * current src changes (variant tap OR gallery swipe), the previous
+   * visible src is pushed onto the leaving layer and the new src
+   * becomes the entering layer. Rapid taps simply supersede the swap
+   * — the last src to land wins and stale leave layers are replaced,
+   * so there is no animation queue and no stale final state.
+   */
+  useEffect(() => {
+    if (!currentActiveSrc) {
+      return;
+    }
+
+    if (currentActiveSrc === shownSrc) {
+      return;
+    }
+
+    setLeavingSrc(reducedMotion ? null : shownSrc || null);
+    setShownSrc(currentActiveSrc);
+    setSwapCount((count) => count + 1);
+  }, [currentActiveSrc, reducedMotion, shownSrc]);
+
+  useEffect(() => {
+    if (!leavingSrc) {
+      return;
+    }
+
+    if (leavingTimerRef.current) {
+      clearTimeout(leavingTimerRef.current);
+    }
+
+    leavingTimerRef.current = setTimeout(() => {
+      setLeavingSrc(null);
+    }, IMG_EXIT_MS);
+
+    return () => {
+      if (leavingTimerRef.current) {
+        clearTimeout(leavingTimerRef.current);
+        leavingTimerRef.current = null;
+      }
+    };
+  }, [leavingSrc]);
+
+  useEffect(
+    () => () => {
+      if (leavingTimerRef.current) {
+        clearTimeout(leavingTimerRef.current);
+      }
+    },
+    []
+  );
+
+  /* ---------------------------------------------------------
+     IMAGE PRELOADING
+     --------------------------------------------------------- */
+
+  /*
+   * Gracefully warms the cache for the current image and the nearby
+   * variant gallery. Staggered and capped so a large catalog never
+   * triggers an unreasonable burst of full-size downloads.
+   */
+  const preloadImages = useCallback((urls: (string | null | undefined)[], max = 8) => {
+    const unique = [...new Set(urls.filter(Boolean) as string[])];
+    unique.slice(0, max).forEach((url, index) => {
+      setTimeout(
+        () => {
+          const img = new window.Image();
+          img.decoding = 'async';
+          img.src = url;
+        },
+        Math.min(index * 120, 840)
+      );
+    });
+  }, []);
+
   /* =========================================================
      LOAD PRODUCT
      ========================================================= */
@@ -292,6 +610,14 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     async function loadProduct() {
       setLoading(true);
       setLoadError('');
+
+      /*
+       * Reset the visual swap stage for a fresh product (e.g. navigating
+       * between two product pages in the same session) so the previous
+       * product's image never lingers as a leaving layer.
+       */
+      setShownSrc('');
+      setLeavingSrc(null);
 
       const { data, error } = await supabase
         .from('products')
@@ -447,6 +773,16 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       setQty(1);
       setActiveImage(0);
       setLoading(false);
+
+      /*
+       * Warm the cache for the current image plus nearby variant/gallery
+       * images so a color tap reaches a ready image instead of a blank
+       * network wait. Staggered + capped by preloadImages.
+       */
+      const variantUrls =
+        !variantError && variantRows ? variantRows.map((row) => row.image_url) : [];
+
+      preloadImages([mappedProduct.image, ...variantUrls, ...mergedImages]);
     }
 
     void loadProduct();
@@ -454,16 +790,16 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, preloadImages]);
 
   /* =========================================================
-     RELATED PRODUCTS
+     ALL PRODUCTS (bottom section, current product excluded)
      ========================================================= */
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadRelated() {
+    async function loadAllProducts() {
       if (!product?.id) {
         return;
       }
@@ -473,17 +809,16 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         .select(
           'id,name,price,original_price,image,alt,category,rating,reviews,discount,badge,variant,brand,in_stock'
         )
-        .eq('category', product.category)
         .neq('id', product.id)
         .eq('active', true)
-        .limit(10);
+        .limit(24);
 
       if (cancelled) {
         return;
       }
 
       if (error || !data) {
-        setRelatedProducts([]);
+        setAllProducts([]);
         return;
       }
 
@@ -517,15 +852,15 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         inStock: Boolean(row.in_stock),
       }));
 
-      setRelatedProducts(mapped);
+      setAllProducts(mapped);
     }
 
-    void loadRelated();
+    void loadAllProducts();
 
     return () => {
       cancelled = true;
     };
-  }, [product?.id, product?.category]);
+  }, [product?.id]);
 
   /* =========================================================
      VARIANT IMAGE CHANGE
@@ -622,7 +957,11 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     }
   };
 
-  const goToCart = () => {
+  // Buy Now goes DIRECTLY to Checkout with the currently selected product,
+  // quantity and variant. It does not route through the Cart page and it does
+  // not touch (or clear) the customer's normal cart. Checkout resolves the
+  // server-side canonical product/variant before ordering.
+  const buyNow = () => {
     if (!effectiveInStock) {
       return;
     }
@@ -631,8 +970,14 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       return;
     }
 
-    addToCartWithQty();
-    router.push('/cart');
+    const params = new URLSearchParams();
+    params.set('buyNow', '1');
+    params.set('product', product.id);
+    params.set('qty', String(qty));
+    if (selectedVariant) {
+      params.set('variant', selectedVariant.id);
+    }
+    router.push(`/checkout?${params.toString()}`);
   };
 
   /* =========================================================
@@ -641,6 +986,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
   const onTouchStart = (event: React.TouchEvent) => {
     touchStartX.current = event.touches[0]?.clientX ?? null;
+    touchStartY.current = event.touches[0]?.clientY ?? null;
   };
 
   const onTouchEnd = (event: React.TouchEvent) => {
@@ -648,13 +994,22 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       return;
     }
 
-    const end = event.changedTouches[0]?.clientX ?? touchStartX.current;
+    const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
 
-    const delta = end - touchStartX.current;
+    const endY = event.changedTouches[0]?.clientY ?? touchStartY.current;
+
+    const delta = endX - touchStartX.current;
+
+    const vertical = Math.abs(endY - (touchStartY.current ?? endY));
 
     touchStartX.current = null;
+    touchStartY.current = null;
 
-    if (Math.abs(delta) <= 40 || allImages.length <= 1) {
+    /*
+     * Only treat the gesture as a gallery swipe when it is clearly
+     * horizontal. A mostly vertical gesture keeps scrolling the page.
+     */
+    if (Math.abs(delta) <= 40 || vertical > Math.abs(delta) * 1.2 || allImages.length <= 1) {
       return;
     }
 
@@ -730,13 +1085,13 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     <div className="min-h-screen bg-[#f6f7f9]">
       <Header />
 
-      <main className="pb-[180px] lg:pb-8">
+      <main className="pb-[calc(124px+env(safe-area-inset-bottom))] lg:pb-8">
         <div className="mx-auto max-w-7xl px-2.5 py-2.5 sm:px-4 sm:py-4">
           {/* =================================================
               BREADCRUMB
              ================================================= */}
 
-          <nav className="mb-2 flex min-w-0 flex-wrap items-center gap-1 text-[10px] text-slate-500 sm:text-xs">
+          <nav className="mb-2 hidden min-w-0 flex-wrap items-center gap-1 text-[10px] text-slate-500 lg:flex lg:text-xs">
             <Link href="/" className="hover:text-primary">
               Home
             </Link>
@@ -767,7 +1122,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
             <section className="min-w-0 lg:sticky lg:top-[150px]">
               <div
-                className="relative aspect-[4/3] max-h-[330px] w-full min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white sm:max-h-[430px] lg:max-h-none"
+                className="relative aspect-square w-full min-w-0 overflow-hidden rounded-[28px] bg-[#f7f4ee] max-h-[75vh] lg:aspect-[4/3] lg:max-h-none"
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
                 onClick={() => {
@@ -776,42 +1131,169 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                   }
                 }}
               >
-                {product.badge && (
-                  <span className="absolute left-2 top-2 z-10 rounded bg-primary px-2 py-1 text-[9px] font-extrabold text-white">
-                    {product.badge}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    router.back();
+                  }}
+                  aria-label="Go back"
+                  className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/85 shadow-[0_2px_10px_rgba(15,23,42,0.08)] backdrop-blur transition-transform hover:scale-105 active:scale-90"
+                >
+                  <Icon name="ArrowLeftIcon" size={18} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleWishlist(product);
+                  }}
+                  aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                  className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/85 shadow-[0_2px_10px_rgba(15,23,42,0.08)] backdrop-blur transition-transform hover:scale-105 active:scale-90"
+                >
+                  <span
+                    key={isInWishlist(product.id) ? 'stage-wish-on' : 'stage-wish-off'}
+                    className="ym-pop flex"
+                  >
+                    <Icon
+                      name="HeartIcon"
+                      variant={isInWishlist(product.id) ? 'solid' : 'outline'}
+                      size={18}
+                      className={isInWishlist(product.id) ? 'text-red-500' : ''}
+                    />
                   </span>
+                </button>
+
+                {/* Real color dots — compact independent selectors floating at top center,
+                    only for products with real color variants. */}
+                {availableColors.length > 0 && (
+                  <div
+                    className="pointer-events-none absolute inset-x-0 top-3 z-20 flex items-start justify-center"
+                    role="group"
+                    aria-label="Select color"
+                  >
+                    {availableColors.map((color) => {
+                      const colorVariants = variants.filter(
+                        (variant) => variant.active && variant.color_name === color
+                      );
+
+                      const available = colorVariants.some((variant) => variant.stock_quantity > 0);
+
+                      const selected = selectedColor === color;
+
+                      const swatch = resolveColorValue(color, colorVariants);
+
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          disabled={!available}
+                          aria-label={`Select ${color}`}
+                          aria-pressed={selected}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleColorSelect(color);
+                          }}
+                          className="group pointer-events-auto flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`relative block h-[11px] w-[11px] rounded-full transition-all duration-200 ease-out ${
+                              swatch ? '' : 'border border-slate-300 bg-white'
+                            } ${
+                              selected
+                                ? 'scale-[1.1] ring-[1.5px] ring-slate-900/80 ring-offset-[3px] ring-offset-[#f7f4ee]'
+                                : available
+                                  ? 'ring-1 ring-black/10 group-hover:scale-[1.06]'
+                                  : 'ring-1 ring-black/5'
+                            } ${available ? '' : 'opacity-35 saturate-0'}`}
+                            style={swatch ? { backgroundColor: swatch } : undefined}
+                          />
+                          {!available && (
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute left-1/2 top-1/2 h-[13px] w-[1.5px] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-white mix-blend-difference"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
 
-                {effectiveDiscount > 0 && (
-                  <span className="absolute right-2 top-2 z-10 rounded bg-green-600 px-2 py-1 text-[9px] font-extrabold text-white">
-                    {effectiveDiscount}% off
-                  </span>
-                )}
-
-                {activeImage === videoIndex && hasVideo && product.videoUrl ? (
+                {activeImage === videoIndex && hasVideo && product.videoUrl?.trim() ? (
                   <video
-                    src={product.videoUrl}
+                    src={product.videoUrl.trim()}
                     controls
                     playsInline
                     preload="metadata"
                     className="h-full w-full object-contain"
                   />
                 ) : (
-                  <AppImage
-                    src={currentActiveSrc || product.image}
-                    alt={product.alt}
-                    fill
-                    priority
-                    objectFit="contain"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="p-1 sm:p-2"
-                  />
+                  /*
+                   * Premium swap stage. The previous image drifts out on the
+                   * exit layer (blur -> fade -> slight downward move) while
+                   * the new image enters on top (soft, blurred -> settles
+                   * sharp). swapCount keys the entering layer so every swap
+                   * restarts its animation; the leaving layer is keyed by its
+                   * own src so rapid taps replace stale exit layers instead
+                   * of queuing them.
+                   */
+                  <div className="absolute inset-0">
+                    {leavingSrc && leavingSrc !== shownSrc && (
+                      <div
+                        key={`ym-exit-${leavingSrc}`}
+                        className="absolute inset-0 ym-img-exit"
+                        aria-hidden="true"
+                      >
+                        <StageImage src={leavingSrc} fallbackSrc={product.image} />
+                      </div>
+                    )}
+
+                    <div
+                      key={`ym-enter-${swapCount}`}
+                      className={`absolute inset-0 ${reducedMotion ? '' : 'ym-img-enter'}`}
+                    >
+                      <StageImage
+                        src={shownSrc || currentActiveSrc || product.image}
+                        alt={product.alt}
+                        fallbackSrc={product.image}
+                        priority={activeImage === 0}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Subtle gallery/swipe affordance — only when real extra media
+                    exists; never a fake control for single-image products.
+                    Anchored inside the relative gallery container so the dots
+                    and arrows always stay tied to the image, never over the
+                    price/discount row. */}
+                {(allImages.length > 1 || hasVideo) && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-2.5 z-20 flex justify-center">
+                    <div
+                      className="flex items-center gap-2 rounded-full bg-white/75 px-2.5 py-1 backdrop-blur"
+                      aria-hidden="true"
+                    >
+                      <Icon name="ChevronLeftIcon" size={12} className="text-slate-500" />
+                      {allImages.map((_, index) => (
+                        <span
+                          key={index}
+                          className={`h-1 rounded-full transition-all duration-300 ${
+                            index === activeImage ? 'w-4 bg-slate-700' : 'w-1 bg-slate-300'
+                          }`}
+                        />
+                      ))}
+                      <Icon name="ChevronRightIcon" size={12} className="text-slate-500" />
+                    </div>
+                  </div>
                 )}
               </div>
 
               {/* Thumbnails */}
               {(allImages.length > 1 || hasVideo) && (
-                <div className="scrollbar-hide mt-2 flex gap-1.5 overflow-x-auto pb-1">
+                <div className="scrollbar-hide mt-2 flex gap-1.5 overflow-x-auto pb-1 md:mt-3">
                   {allImages.map((image, index) => (
                     <button
                       key={`${image}-${index}`}
@@ -853,7 +1335,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 PRODUCT INFORMATION
                =============================================== */}
 
-            <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 lg:p-5">
+            <section className="min-w-0 rounded-2xl border border-slate-200/70 bg-white p-3 sm:p-4 sm:rounded-3xl lg:p-6">
               {/* Brand/category */}
               <div className="flex min-w-0 flex-wrap items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 sm:text-[10px]">
                 {product.brand && <span className="text-primary">{product.brand}</span>}
@@ -890,7 +1372,10 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
               {/* Price */}
               <div className="mt-2.5 border-y border-slate-200 py-2.5">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <div
+                  key={`price-${effectivePrice}`}
+                  className="ym-text-in flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                >
                   <span className="text-[22px] font-black leading-none text-red-500 sm:text-2xl">
                     {money(effectivePrice)}
                   </span>
@@ -909,7 +1394,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 </div>
 
                 {effectiveSavings > 0 && (
-                  <p className="mt-1 text-[11px] font-semibold text-green-700">
+                  <p className="ym-text-in mt-1 text-[11px] font-semibold text-green-700">
                     You save {money(effectiveSavings)}
                   </p>
                 )}
@@ -918,7 +1403,8 @@ export default function ProductDetailsClient({ id }: { id: string }) {
               {/* Stock */}
               <div className="mt-2.5">
                 <p
-                  className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${
+                  key={`stock-${effectiveInStock}-${lowStock}`}
+                  className={`ym-text-in inline-flex items-center gap-1.5 text-[11px] font-bold ${
                     effectiveInStock ? 'text-green-700' : 'text-red-500'
                   }`}
                 >
@@ -935,6 +1421,28 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                     : 'Out of stock'}
                 </p>
               </div>
+
+              {/* Live color selection summary — mirrors the top-center dots so
+                  the currently selected variant stays explicit above the fold. */}
+              {availableColors.length > 0 && selectedColor && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-600">
+                  <span
+                    key={`color-${selectedColor}-${selectedSize}`}
+                    className="ym-text-in inline-flex items-center gap-1"
+                  >
+                    Color <span className="font-extrabold text-slate-900">• {selectedColor}</span>
+                  </span>
+
+                  {availableSizes.length > 0 && selectedSize && (
+                    <span
+                      key={`size-${selectedColor}-${selectedSize}`}
+                      className="ym-text-in inline-flex items-center gap-1"
+                    >
+                      Size <span className="font-extrabold text-slate-900">• {selectedSize}</span>
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* =============================================
                   VARIANTS
@@ -971,91 +1479,16 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                               key={size}
                               type="button"
                               disabled={!available}
-                              onClick={() => {
-                                setSelectedSize(size);
-
-                                setQty(1);
-                              }}
-                              className={`min-w-[38px] rounded-md border px-2.5 py-1.5 text-[11px] font-bold ${
+                              onClick={() => handleSizeSelect(size)}
+                              className={`ym-chip min-w-[38px] rounded-md border px-2.5 py-1.5 text-[11px] font-bold ${
                                 selected
-                                  ? 'border-primary bg-blue-50 text-primary'
+                                  ? 'scale-[1.05] border-primary bg-primary text-white shadow-primary/20'
                                   : available
-                                    ? 'border-slate-300 bg-white text-slate-800'
+                                    ? 'border-slate-300 bg-white text-slate-800 hover:border-primary/50'
                                     : 'cursor-not-allowed border-slate-200 text-slate-300 line-through'
                               }`}
                             >
                               {size}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Colors */}
-                  {availableColors.length > 0 && (
-                    <div>
-                      <div className="mb-1.5 flex items-center gap-1 text-xs">
-                        <span className="font-bold">Color</span>
-
-                        {selectedColor && <span className="text-slate-500">• {selectedColor}</span>}
-                      </div>
-
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableColors.map((color) => {
-                          const candidates = variants.filter(
-                            (variant) =>
-                              variant.color_name === color &&
-                              variant.active &&
-                              (!selectedSize || variant.size === selectedSize)
-                          );
-
-                          const available = candidates.some(
-                            (variant) => variant.stock_quantity > 0
-                          );
-
-                          const selected = selectedColor === color;
-
-                          const image = candidates.find((variant) => variant.image_url)?.image_url;
-
-                          const swatch = candidates.find(
-                            (variant) => variant.color_value
-                          )?.color_value;
-
-                          return (
-                            <button
-                              key={color}
-                              type="button"
-                              disabled={!available}
-                              onClick={() => {
-                                setSelectedColor(color);
-
-                                setQty(1);
-                              }}
-                              className={`flex min-h-[36px] items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-bold ${
-                                selected
-                                  ? 'border-primary bg-blue-50 text-primary'
-                                  : available
-                                    ? 'border-slate-300 bg-white text-slate-800'
-                                    : 'cursor-not-allowed border-slate-200 text-slate-300'
-                              }`}
-                            >
-                              {image ? (
-                                <img
-                                  src={image}
-                                  alt=""
-                                  className="h-6 w-6 rounded-full border border-slate-200 object-cover"
-                                />
-                              ) : swatch ? (
-                                <span
-                                  className="h-4 w-4 rounded-full border border-slate-300"
-                                  style={{
-                                    backgroundColor: swatch,
-                                  }}
-                                />
-                              ) : null}
-
-                              <span>{color}</span>
                             </button>
                           );
                         })}
@@ -1072,7 +1505,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
               {(effectiveSku || product.brand || product.category) && (
                 <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 border-t border-slate-100 pt-2.5 text-[10px] sm:text-[11px]">
                   {effectiveSku && (
-                    <p className="min-w-0 text-slate-500">
+                    <p key={`sku-${effectiveSku}`} className="ym-text-in min-w-0 text-slate-500">
                       SKU:{' '}
                       <span className="break-words font-semibold text-slate-800">
                         {effectiveSku}
@@ -1131,14 +1564,19 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                   type="button"
                   onClick={() => toggleWishlist(product)}
                   aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white transition-transform active:scale-90"
                 >
-                  <Icon
-                    name="HeartIcon"
-                    variant={isInWishlist(product.id) ? 'solid' : 'outline'}
-                    size={20}
-                    className={isInWishlist(product.id) ? 'text-red-500' : ''}
-                  />
+                  <span
+                    key={isInWishlist(product.id) ? 'wish-on' : 'wish-off'}
+                    className="ym-pop flex"
+                  >
+                    <Icon
+                      name="HeartIcon"
+                      variant={isInWishlist(product.id) ? 'solid' : 'outline'}
+                      size={20}
+                      className={isInWishlist(product.id) ? 'text-red-500' : ''}
+                    />
+                  </span>
                 </button>
               </div>
 
@@ -1154,7 +1592,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                   type="button"
                   disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
                   onClick={addToCartWithQty}
-                  className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icon name="ShoppingCartIcon" size={16} />
                   Add to Cart
@@ -1163,8 +1601,8 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 <button
                   type="button"
                   disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                  onClick={goToCart}
-                  className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={buyNow}
+                  className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-accent px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Icon name="BoltIcon" size={16} />
                   Buy Now
@@ -1328,16 +1766,16 @@ export default function ProductDetailsClient({ id }: { id: string }) {
           </div>
 
           {/* =================================================
-              SIMILAR PRODUCTS
+              ALL PRODUCTS
              ================================================= */}
 
-          {relatedProducts.length > 0 && (
+          {allProducts.length > 0 && (
             <section className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
               <div className="flex h-11 items-center justify-between border-b border-slate-100 px-3 sm:px-4">
-                <h2 className="text-sm font-extrabold text-slate-950">Similar Products</h2>
+                <h2 className="text-sm font-extrabold text-slate-950">All Products</h2>
 
                 <Link
-                  href={`/products?category=${encodeURIComponent(product.category || '')}`}
+                  href="/products"
                   className="flex items-center gap-1 text-[11px] font-bold text-primary"
                 >
                   View all
@@ -1345,64 +1783,14 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 </Link>
               </div>
 
-              <div className="scrollbar-hide flex gap-2 overflow-x-auto p-2.5 sm:p-3">
-                {relatedProducts.map((related) => {
-                  const discount =
-                    related.originalPrice && related.originalPrice > related.price
-                      ? Math.round(
-                          ((related.originalPrice - related.price) / related.originalPrice) * 100
-                        )
-                      : 0;
-
-                  return (
-                    <Link
-                      key={related.id}
-                      href={`/products/${related.id}`}
-                      className="w-[140px] min-w-[140px] overflow-hidden rounded-lg border border-slate-100 bg-white sm:w-[165px] sm:min-w-[165px]"
-                    >
-                      <div className="relative aspect-square bg-slate-50">
-                        <AppImage
-                          src={related.image}
-                          alt={related.alt}
-                          fill
-                          objectFit="contain"
-                          sizes="165px"
-                          className="p-1.5"
-                        />
-
-                        {discount > 0 && (
-                          <span className="absolute right-1.5 top-1.5 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-extrabold text-white">
-                            -{discount}%
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="p-2">
-                        <p className="line-clamp-2 min-h-[32px] text-[11px] font-semibold leading-4 text-slate-900">
-                          {related.name}
-                        </p>
-
-                        <div className="mt-1 flex flex-wrap items-baseline gap-x-1">
-                          <span className="text-xs font-extrabold text-red-500">
-                            {money(related.price)}
-                          </span>
-
-                          {related.originalPrice && related.originalPrice > related.price && (
-                            <span className="text-[9px] text-slate-400 line-through">
-                              {money(related.originalPrice)}
-                            </span>
-                          )}
-                        </div>
-
-                        {related.rating > 0 && related.reviews > 0 && (
-                          <p className="mt-1 text-[9px] text-green-700">
-                            {related.rating.toFixed(1)} ★
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
+              <div className="p-2.5 sm:p-3">
+                <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 md:gap-3">
+                  {allProducts.map((related) => (
+                    <div key={related.id} className="min-w-0">
+                      <ProductCard product={related as CardProduct} variant="compact" />
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
           )}
@@ -1418,14 +1806,11 @@ export default function ProductDetailsClient({ id }: { id: string }) {
        * the fixed bottom dock.
        */}
       <div
-        className={`fixed bottom-[84px] left-0 right-0 z-40 lg:hidden transition-all duration-200 ${
+        className={`fixed bottom-[calc(76px+env(safe-area-inset-bottom))] left-0 right-0 z-40 lg:hidden transition-all duration-200 ${
           stickyBuyVisible
             ? 'translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-4 opacity-0'
         }`}
-        style={{
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
       >
         <div className="mx-auto flex max-w-md items-center gap-3 px-3">
           <div className="flex flex-1 items-center rounded-2xl border border-black/5 bg-white/95 px-3 py-2 shadow-[0_-2px_20px_-4px_rgba(0,0,0,0.15)] backdrop-blur">
@@ -1450,7 +1835,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
               <button
                 type="button"
                 disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                onClick={goToCart}
+                onClick={buyNow}
                 className="flex h-9 items-center justify-center gap-1 rounded-lg bg-orange-500 px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Icon name="BoltIcon" size={15} />

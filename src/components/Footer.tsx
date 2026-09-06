@@ -12,7 +12,7 @@ const quickLinks = [
 
 const supportLinks = [
   { label: 'Account', href: '/account' },
-  { label: 'Send Your Product', href: '/account/send-product' },
+  { label: 'Request a Product', href: '/account/send-product' },
   { label: 'Notifications', href: '/account/notifications' },
 ];
 

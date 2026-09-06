@@ -50,10 +50,10 @@ export default function ProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-5">
+    <div className="flex flex-col gap-3">
       {products.map((p) => (
         <div key={p.id} className="min-w-0">
-          <ProductCard product={p as CardProduct} />
+          <ProductCard product={p as CardProduct} variant="wide" />
         </div>
       ))}
     </div>

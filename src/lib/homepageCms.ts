@@ -15,6 +15,10 @@ export interface BriefProduct {
   variant?: string;
   brand: string;
   inStock: boolean;
+  /** True when the product has at least one active variant row. Homewide cards
+      use this to decide whether Buy Now can order directly or must first ask
+      for a variant selection. */
+  hasVariants?: boolean;
 }
 
 export interface BriefHero {
@@ -24,6 +28,14 @@ export interface BriefHero {
   image_url: string;
   cta_text: string | null;
   cta_url: string | null;
+  image_fit?: 'cover' | 'contain';
+  image_scale?: number;
+  image_position_x?: number;
+  image_position_y?: number;
+  foreground_image_url?: string | null;
+  foreground_scale?: number;
+  foreground_position_x?: number;
+  foreground_position_y?: number;
 }
 
 export interface BriefCategory {
@@ -45,6 +57,14 @@ export interface BriefPromo {
   image_url: string;
   cta_text: string | null;
   cta_url: string | null;
+  image_fit?: 'cover' | 'contain';
+  image_scale?: number;
+  image_position_x?: number;
+  image_position_y?: number;
+  foreground_image_url?: string | null;
+  foreground_scale?: number;
+  foreground_position_x?: number;
+  foreground_position_y?: number;
 }
 
 export interface BriefTestimonial {
@@ -181,6 +201,54 @@ export async function fetchHomepageCategories(): Promise<BriefCategory[]> {
   }
 }
 
+// Returns active storefront products for the customer "All Products" sections
+// (Home and Product Details) using the same canonical mapping as the rest of
+// the storefront. Accepts a limit so a large catalog doesn't send an unbounded
+// payload just to fill a listing section. Empty on error so callers can render
+// a safe empty state.
+export async function fetchAllProducts(limit = 24): Promise<BriefProduct[]> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(
+        'id,name,price,original_price,image,alt,category,rating,reviews,discount,badge,variant,brand,in_stock'
+      )
+      .eq('active', true)
+      .limit(limit);
+    if (error) return [];
+    return (data ?? []).map((p) => toBriefProduct(p as Record<string, unknown>));
+  } catch {
+    return [];
+  }
+}
+
+// Returns the set of product ids that currently have at least one active
+// variant row. Homewide product cards use this so a Buy Now affordance never
+// blind-orders a base row for a product that truly needs a variant selection.
+export async function fetchVariantPresence(productIds: string[]): Promise<Set<string>> {
+  const present = new Set<string>();
+  if (productIds.length === 0) return present;
+  try {
+    const { data, error } = await supabase
+      .from('product_variants')
+      .select('product_id')
+      .eq('active', true)
+      .in('product_id', productIds);
+    if (error) return present;
+    for (const row of data ?? []) present.add(String(row.product_id));
+  } catch {
+    /* empty — unknown presence degrades to "needs selection" */
+  }
+  return present;
+}
+
+// Merges variant presence onto a product list (single batched query).
+export async function attachVariantPresence<T extends BriefProduct>(products: T[]): Promise<T[]> {
+  if (products.length === 0) return products;
+  const present = await fetchVariantPresence(products.map((p) => p.id));
+  return products.map((p) => ({ ...p, hasVariants: present.has(p.id) }));
+}
+
 export async function fetchHeroBanners(): Promise<BriefHero[]> {
   try {
     const { data, error } = await supabase
@@ -200,35 +268,32 @@ export interface HeroAutoplay {
   intervalMs: number;
 }
 
-// Hero autoplay configuration. The migration adding hero_autoplay_enabled /
-// hero_autoplay_interval_ms columns to store_settings is currently unapplied, so
-// querying those columns produces a 400. Until the schema is rolled out, return
-// safe defaults directly. The code is structured so DB settings can be restored
-// with a single uncomment when the columns land.
+// Hero autoplay configuration. Reads the Admin-managed code from store_settings
+// and clamps the interval to the 2500-10000ms range enforced by migration
+// 20260903120000_homepage_hero_autoplay. If the store_settings row or the
+// hero_autoplay_* columns are missing (the migration is currently unapplied on
+// the live database, so the columns do not exist yet), gracefully fall back to
+// safe defaults so the hero still rotates.
 export async function fetchHeroAutoplay(): Promise<HeroAutoplay> {
   const defaults: HeroAutoplay = { enabled: true, intervalMs: 4500 };
 
-  // TODO: Re-enable when migration 20260903120000_homepage_hero_autoplay is applied.
-  //
-  // try {
-  //   const { data, error } = await supabase
-  //     .from('store_settings')
-  //     .select('hero_autoplay_enabled, hero_autoplay_interval_ms')
-  //     .limit(1)
-  //     .maybeSingle();
-  //   if (error || !data) return defaults;
-  //   const enabled = data.hero_autoplay_enabled;
-  //   const enabledValue = enabled == null ? true : Boolean(enabled);
-  //   let interval =
-  //     data.hero_autoplay_interval_ms == null ? 4500 : Number(data.hero_autoplay_interval_ms);
-  //   if (!Number.isFinite(interval) || interval <= 0) interval = 4500;
-  //   interval = Math.min(10000, Math.max(2500, interval));
-  //   return { enabled: enabledValue, intervalMs: interval };
-  // } catch {
-  //   return defaults;
-  // }
-
-  return defaults;
+  try {
+    const { data, error } = await supabase
+      .from('store_settings')
+      .select('hero_autoplay_enabled, hero_autoplay_interval_ms')
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return defaults;
+    const enabled = data.hero_autoplay_enabled;
+    const enabledValue = enabled == null ? true : Boolean(enabled);
+    let interval =
+      data.hero_autoplay_interval_ms == null ? 4500 : Number(data.hero_autoplay_interval_ms);
+    if (!Number.isFinite(interval) || interval <= 0) interval = 4500;
+    interval = Math.min(10000, Math.max(2500, interval));
+    return { enabled: enabledValue, intervalMs: interval };
+  } catch {
+    return defaults;
+  }
 }
 
 export async function fetchPromoBanners(): Promise<BriefPromo[]> {

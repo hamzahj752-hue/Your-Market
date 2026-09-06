@@ -6,6 +6,54 @@ import Icon from '@/components/ui/AppIcon';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 
+function PromoCodeRow() {
+  const [code, setCode] = useState('');
+  const [applied, setApplied] = useState(false);
+
+  const apply = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    setApplied(true);
+  };
+
+  return (
+    <form onSubmit={apply} className="mb-4" aria-label="Enter promo code">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+            <Icon name="TicketIcon" size={14} />
+          </span>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase());
+              setApplied(false);
+            }}
+            placeholder={applied ? 'Promo code applied' : 'Enter promo code'}
+            aria-label="Promo code"
+            className="w-full h-10 pl-8 pr-3 rounded-full border border-border bg-white text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 disabled:opacity-60"
+            disabled={applied}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={applied || !code.trim()}
+          className="flex-shrink-0 h-10 px-4 rounded-full bg-foreground text-background text-sm font-700 disabled:opacity-50 transition-opacity"
+        >
+          Apply
+        </button>
+      </div>
+      {applied && (
+        <p className="mt-1.5 text-xs font-700 text-green-600 flex items-center gap-1">
+          <Icon name="CheckBadgeIcon" size={14} />
+          Code {code} applied
+        </p>
+      )}
+    </form>
+  );
+}
+
 interface StoreSettings {
   currency: string;
   shipping_charge: number;
@@ -128,6 +176,9 @@ export default function OrderSummary() {
 
       <div className="border-t border-border my-3" />
 
+      {/* Promo code */}
+      <PromoCodeRow />
+
       {/* Total */}
       <div className="flex justify-between items-baseline mb-4">
         <span className="text-base font-800 text-foreground">Total</span>
@@ -136,7 +187,10 @@ export default function OrderSummary() {
       </div>
 
       {/* Checkout */}
-      <Link href="/checkout" className="btn-primary w-full justify-center text-sm py-3 rounded-xl">
+      <Link
+        href="/checkout"
+        className="btn-primary w-full justify-center text-sm py-3 rounded-full"
+      >
         Proceed to Checkout
         <Icon name="LockClosedIcon" size={16} />
       </Link>

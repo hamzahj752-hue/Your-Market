@@ -15,8 +15,16 @@ import { fetchHomepageCategories, BriefCategory } from '@/lib/homepageCms';
 export default function Header() {
   const { totalItems } = useCart();
   const { wishlist } = useWishlist();
-  const { loggedIn: authed, loading: authLoading } = useAuth();
+  const { loggedIn: authed, loading: authLoading, profile } = useAuth();
   const pathname = usePathname();
+
+  const [avatarError, setAvatarError] = useState(false);
+  useEffect(() => {
+    setAvatarError(false);
+  }, [profile.avatarUrl]);
+
+  const customerName = profile.name.trim();
+  const customerInitial = customerName ? customerName.charAt(0).toUpperCase() : '?';
 
   const [searchValue, setSearchValue] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -88,40 +96,84 @@ export default function Header() {
     return params?.get('category') === catName;
   };
 
+  const isAllActive =
+    pathname === '/products' &&
+    (typeof window === 'undefined' || !new URLSearchParams(window.location.search).get('category'));
+
   return (
     <header className="sticky top-0 left-0 right-0 z-50 bg-white border-b border-border/40">
       {/* ── ROW 1: brand + search + actions ── */}
       <div className="max-w-7xl mx-auto px-2 sm:px-4 h-11 sm:h-12 flex items-center gap-2">
-        {/* Brand */}
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 flex-shrink-0"
-          aria-label={`${storeName} home`}
-        >
-          <AppLogo src={storeLogo ?? ''} size={22} iconName="ShoppingBagIcon" />
-          <span className="font-display text-sm sm:text-base font-800 text-primary tracking-tight leading-none hidden sm:block">
-            {storeName}
-          </span>
-        </Link>
+        {/* Identity: store brand (logged out / loading) or customer greeting (logged in) */}
+        {!authLoading && authed ? (
+          <Link
+            href="/account"
+            className="flex items-center gap-2 flex-shrink-0 min-w-0 max-w-[45%] sm:max-w-[260px]"
+            aria-label="Your account"
+          >
+            {profile.avatarUrl && !avatarError ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={profile.avatarUrl}
+                alt=""
+                width={28}
+                height={28}
+                className="w-7 h-7 rounded-full object-cover border border-border/70 flex-shrink-0"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full border border-primary/15 bg-primary/10 font-800 leading-none text-primary text-[13px]">
+                {customerInitial}
+              </span>
+            )}
+            <span className="min-w-0 leading-none">
+              <span className="block text-[10px] sm:text-[11px] font-600 text-muted-foreground whitespace-nowrap">
+                Hello <span aria-hidden="true">👋</span>
+              </span>
+              <span
+                className="block text-[13px] sm:text-sm font-800 text-foreground truncate max-w-[110px] sm:max-w-[160px]"
+                title={customerName}
+              >
+                {customerName}
+              </span>
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 flex-shrink-0 min-w-0"
+            aria-label={`${storeName} home`}
+          >
+            <AppLogo src={storeLogo ?? ''} size={22} iconName="ShoppingBagIcon" />
+            <span className="font-display text-sm sm:text-base font-800 text-primary tracking-tight leading-none truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">
+              {storeName}
+            </span>
+          </Link>
+        )}
 
         {/* Search (desktop) */}
-        <form
-          onSubmit={handleSearch}
-          className="hidden md:flex relative flex-1 min-w-0 max-w-2xl ml-4"
-          role="search"
-        >
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-            <Icon name="MagnifyingGlassIcon" size={15} />
-          </span>
-          <input
-            type="text"
-            className="w-full h-9 pl-9 pr-4 rounded-lg bg-muted/50 border border-border/80 text-sm text-foreground placeholder:text-muted-foreground/70 transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/15"
-            placeholder="Search for Products, Brands and More"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            aria-label="Search products"
-          />
-        </form>
+        <div className="hidden md:flex relative flex-1 min-w-0 max-w-2xl ml-4 items-center gap-2">
+          <form onSubmit={handleSearch} className="relative flex-1 min-w-0" role="search">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+              <Icon name="MagnifyingGlassIcon" size={15} />
+            </span>
+            <input
+              type="text"
+              className="w-full h-10 pl-9 pr-4 rounded-full bg-black/[0.04] border border-border/60 text-sm text-foreground placeholder:text-muted-foreground/70 transition-all focus:bg-white focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/15"
+              placeholder="Search for Products, Brands and More"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              aria-label="Search products"
+            />
+          </form>
+          <Link
+            href="/products"
+            className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm transition-transform active:scale-95"
+            aria-label="Search filters"
+          >
+            <Icon name="AdjustmentsVerticalIcon" size={18} />
+          </Link>
+        </div>
 
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-0.5 flex-shrink-0 ml-auto">
@@ -173,8 +225,24 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Mobile actions: account + wishlist + cart */}
+        {/* Mobile actions: bell (notifications) + wishlist + cart + account */}
         <div className="flex md:hidden flex-1 items-center justify-end gap-0">
+          {!authLoading && authed && (
+            <Link
+              href="/account/notifications"
+              className="relative icon-btn !w-8 !h-8"
+              aria-label={
+                unreadCount > 0 ? `Notifications with ${unreadCount} unread` : 'Notifications'
+              }
+            >
+              <Icon name="BellIcon" size={19} />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 min-w-[14px] h-[14px] bg-red-500 text-white text-[8px] font-800 rounded-full flex items-center justify-center px-0.5 leading-none ring-2 ring-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
           <Link href="/account" className="icon-btn !w-8 !h-8" aria-label="Account">
             <Icon name="UserCircleIcon" size={19} />
           </Link>
@@ -205,41 +273,63 @@ export default function Header() {
         </div>
       </div>
 
-      {/* ── ROW 2: mobile search ── */}
+      {/* ── ROW 2: mobile search + filter ── */}
       <div className="md:hidden px-2 sm:px-3 pb-2">
-        <form onSubmit={handleSearch} className="relative" role="search">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-            <Icon name="MagnifyingGlassIcon" size={14} />
-          </span>
-          <input
-            type="text"
-            className="w-full h-[34px] pl-8 pr-3 rounded-lg border border-primary/40 bg-white text-[13px] text-foreground placeholder:text-muted-foreground/70 transition-all focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/15"
-            placeholder="Search for Products, Brands and More"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            aria-label="Search products"
-          />
-        </form>
+        <div className="flex items-center gap-2">
+          <form onSubmit={handleSearch} className="relative flex-1" role="search">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+              <Icon name="MagnifyingGlassIcon" size={16} />
+            </span>
+            <input
+              type="text"
+              className="w-full h-10 pl-9 pr-3 rounded-full bg-black/[0.04] border border-border/60 text-[13px] text-foreground placeholder:text-muted-foreground/70 transition-all focus:bg-white focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/15"
+              placeholder="Search for Products, Brands and More"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              aria-label="Search products"
+            />
+          </form>
+          <Link
+            href="/products"
+            className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm transition-transform active:scale-95"
+            aria-label="Search filters"
+          >
+            <Icon name="AdjustmentsVerticalIcon" size={18} />
+          </Link>
+        </div>
       </div>
 
-      {/* ── ROW 3: category strip ── */}
+      {/* ── ROW 3: compact commerce-style category strip ── */}
       {navCategories.length > 0 && (
         <div className="border-t border-border/40 bg-white">
-          <div className="max-w-7xl mx-auto relative">
+          <div className="max-w-7xl mx-auto">
             <div
               ref={catStripRef}
-              className="flex items-stretch overflow-x-auto scrollbar-hide"
+              className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide px-2 sm:px-4 py-1.5"
               role="navigation"
               aria-label="Shop by category"
             >
               <Link
                 href="/products"
-                className="flex flex-col items-center justify-center flex-shrink-0 px-3 py-1.5 min-w-[56px] text-[10px] font-600 text-foreground hover:text-primary transition-colors"
+                aria-current={isAllActive ? 'page' : undefined}
+                className={`flex w-16 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-b-2 px-1 py-1 ${
+                  isAllActive ? 'border-primary' : 'border-transparent hover:border-primary/40'
+                }`}
               >
-                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-0.5">
-                  <Icon name="Squares2X2Icon" size={12} />
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    isAllActive ? 'bg-primary/10 text-primary' : 'bg-card text-muted-foreground'
+                  }`}
+                >
+                  <Icon name="Squares2X2Icon" size={16} />
                 </span>
-                <span className="leading-tight">All</span>
+                <span
+                  className={`max-w-full truncate text-center text-[9px] font-bold leading-tight ${
+                    isAllActive ? 'text-primary' : 'text-foreground'
+                  }`}
+                >
+                  All
+                </span>
               </Link>
 
               {navCategories.map((cat) => {
@@ -248,42 +338,45 @@ export default function Header() {
                   <Link
                     key={cat.id || cat.name}
                     href={`/products?category=${encodeURIComponent(cat.name)}`}
-                    className={`relative flex flex-col items-center justify-center flex-shrink-0 px-2.5 py-1.5 min-w-[56px] text-[10px] font-600 transition-colors ${
-                      active ? 'text-primary' : 'text-foreground hover:text-primary'
+                    className={`flex w-16 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-b-2 px-1 py-1 ${
+                      active ? 'border-primary' : 'border-transparent hover:border-primary/40'
                     }`}
                   >
-                    {cat.image ? (
-                      <span className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 border border-border/60 mb-0.5">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-card text-primary">
+                      {cat.image ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={cat.image}
                           alt=""
-                          width={24}
-                          height={24}
-                          className="object-cover w-6 h-6"
+                          width={32}
+                          height={32}
+                          className="object-cover h-8 w-8"
                         />
-                      </span>
-                    ) : (
-                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mb-0.5">
-                        <Icon name="FolderIcon" size={11} />
-                      </span>
-                    )}
-                    <span className="leading-tight line-clamp-1 max-w-[52px]">{cat.name}</span>
-                    {active && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-primary" />
-                    )}
+                      ) : (
+                        <Icon name="FolderIcon" size={15} />
+                      )}
+                    </span>
+                    <span
+                      className={`max-w-full truncate text-center text-[9px] font-semibold leading-tight ${
+                        active ? 'text-primary' : 'text-foreground'
+                      }`}
+                    >
+                      {cat.name}
+                    </span>
                   </Link>
                 );
               })}
 
               <Link
                 href="/products"
-                className="flex flex-col items-center justify-center flex-shrink-0 px-2.5 py-1.5 min-w-[56px] text-[10px] font-600 text-muted-foreground hover:text-primary transition-colors"
+                className="flex w-14 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border-b-2 border-transparent px-1 py-1 hover:border-primary/40"
               >
-                <span className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-0.5">
-                  <Icon name="EllipsisHorizontalIcon" size={12} />
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground">
+                  <Icon name="EllipsisHorizontalIcon" size={16} />
                 </span>
-                <span className="leading-tight">More</span>
+                <span className="max-w-full truncate text-center text-[9px] font-semibold leading-tight text-foreground">
+                  More
+                </span>
               </Link>
             </div>
           </div>

@@ -1,13 +1,13 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/ui/AppIcon';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartItem } from '@/context/CartContext';
 import LocationPicker from '@/components/LocationPicker/LocationPicker';
 import NepalPhoneInput from '@/components/NepalPhoneInput';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +44,11 @@ const FRIENDLY_ERRORS: Array<[RegExp, string]> = [
   [/usage limit/i, 'The coupon code you entered has reached its usage limit.'],
   [/minimum order/i, 'This coupon requires a minimum order value to apply.'],
   [/no longer exists/i, 'One of the items in your cart is no longer available.'],
+  [/already linked to another account/i, 'This phone number is already linked to another account.'],
+  [
+    /only has \d+ (left )?in stock/i,
+    'One of the items in your cart has limited stock. Please reduce the quantity and try again.',
+  ],
   [/out of stock/i, 'One of the items in your cart is currently out of stock.'],
   [
     /cash on delivery is currently unavailable/i,
@@ -61,6 +66,14 @@ const FRIENDLY_ERRORS: Array<[RegExp, string]> = [
   [
     /no longer available/i,
     'A variant in your cart is no longer available. Please review your cart.',
+  ],
+  [
+    /row-level security policy|permission denied for function/i,
+    'Your order could not be processed right now. Please try again in a moment, or contact support.',
+  ],
+  [
+    /invalid input syntax for type (uuid|integer)/i,
+    'There was a problem with an item in your cart. Please remove it and add it again.',
   ],
 ];
 
@@ -85,6 +98,15 @@ export default function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
   const router = useRouter();
 
+  // Buy Now intent: a dedicated checkout item set originating from Product
+  // Details. It is resolved server-side (canonical price/stock/variant) and
+  // kept SEPARATE from the customer's normal cart so a Buy Now purchase never
+  // destroys or overwrites existing cart contents.
+  const [buyNowIntent, setBuyNowIntent] = useState(false);
+  const [buyNowItems, setBuyNowItems] = useState<CartItem[] | null>(null);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
+  const [buyNowError, setBuyNowError] = useState('');
+
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [useNewAddress, setUseNewAddress] = useState(false);
@@ -98,22 +120,160 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [loginRequired, setLoginRequired] = useState(false);
   const [_location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
 
+  // Per-product Cash on Delivery gating. products.cod_enabled=false items can
+  // never be paid by COD — the server placeholder enforces this as well — so the
+  // customer UI identifies them up front and blocks submission until removed.
+  const [codBlockedItems, setCodBlockedItems] = useState<CartItem[]>([]);
+  const [codBlockedLoading, setCodBlockedLoading] = useState(false);
+
   const shippingCharge = settings?.shipping_charge ?? 200;
   const freeShippingThreshold = settings?.free_shipping_threshold ?? 6500;
   const taxPercent = settings?.tax_percent ?? 13;
-  const shipping = subtotal >= freeShippingThreshold ? 0 : shippingCharge;
-  const tax = subtotal * (taxPercent / 100);
-  const total = subtotal + shipping + tax;
+
+  // The effective checkout line items come from a Buy Now intent when present,
+  // otherwise from the customer's normal cart. Calculations below never mix the
+  // two sources.
+  const checkoutItems = buyNowItems ?? items;
+  const checkoutSubtotal = buyNowItems
+    ? buyNowItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
+    : subtotal;
+
+  const shipping = checkoutSubtotal >= freeShippingThreshold ? 0 : shippingCharge;
+  const tax = checkoutSubtotal * (taxPercent / 100);
+  const total = checkoutSubtotal + shipping + tax;
 
   const availableMethods = PAYMENT_METHODS.filter(
     ([id]) => id === 'cod' && (settings?.cod_enabled ?? true)
   );
+
+  // Buy Now intent resolution: `/checkout?buyNow=1&product=<id>&qty=<n>&variant=<id>`.
+  // Re-resolves the canonical product/variant from the server so a tampered
+  // client price can never reach place_order — it is discarded in favour of the
+  // database price. Stock and active-variant rules are enforced the same way.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('buyNow') !== '1') return;
+
+    setBuyNowIntent(true);
+    let active = true;
+
+    const loadBuyNow = async () => {
+      const rawProductId = params.get('product');
+      const rawQty = Number(params.get('qty'));
+      const rawVariantId = params.get('variant');
+
+      const qty = Number.isFinite(rawQty) && Number.isInteger(rawQty) && rawQty >= 1 ? rawQty : 1;
+
+      if (!rawProductId) {
+        if (active) setBuyNowError('This product is no longer available.');
+        setBuyNowLoading(false);
+        return;
+      }
+
+      setBuyNowLoading(true);
+      setBuyNowError('');
+
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', rawProductId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (active && (error || !product)) {
+        setBuyNowError('This product is no longer available.');
+        setBuyNowLoading(false);
+        return;
+      }
+      if (!active || !product) return;
+
+      let variant: Record<string, unknown> | null = null;
+      if (rawVariantId) {
+        const { data: vr, error: vErr } = await supabase
+          .from('product_variants')
+          .select('*')
+          .eq('id', rawVariantId)
+          .eq('product_id', rawProductId)
+          .eq('active', true)
+          .maybeSingle();
+
+        if (active && (vErr || !vr)) {
+          setBuyNowError(
+            'The selected variant is no longer available. Please review your selection.'
+          );
+          setBuyNowLoading(false);
+          return;
+        }
+        if (!active) return;
+        variant = vr;
+      }
+
+      const price = variant ? Number(variant.price ?? product.price) : Number(product.price);
+      const originalPrice = variant
+        ? variant.original_price != null
+          ? Number(variant.original_price)
+          : product.original_price != null
+            ? Number(product.original_price)
+            : undefined
+        : product.original_price != null
+          ? Number(product.original_price)
+          : undefined;
+      const stockQuantity = variant
+        ? Number(variant.stock_quantity)
+        : product.stock_quantity != null
+          ? Number(product.stock_quantity)
+          : Number(product.in_stock ? 99 : 0);
+      const inStock = stockQuantity > 0;
+
+      if (active && (!inStock || qty > stockQuantity)) {
+        setBuyNowError(
+          !inStock
+            ? 'This product is currently out of stock and cannot be purchased right now.'
+            : 'The selected quantity is not available in stock. Please reduce the quantity.'
+        );
+        setBuyNowLoading(false);
+        return;
+      }
+      if (!active) return;
+
+      const item: CartItem = {
+        id: String(product.id),
+        name: String(product.name || 'Product'),
+        price,
+        originalPrice,
+        image:
+          variant && variant.image_url ? String(variant.image_url) : String(product.image || ''),
+        category: String(product.category || ''),
+        rating: Number(product.rating) || 0,
+        discount: product.discount != null ? Number(product.discount) : undefined,
+        inStock,
+        quantity: qty,
+        stockQuantity,
+        variantId: variant ? String(variant.id) : undefined,
+        variantSize: variant && variant.size ? String(variant.size) : undefined,
+        variantColor: variant && variant.color_name ? String(variant.color_name) : undefined,
+        variantImage: variant && variant.image_url ? String(variant.image_url) : undefined,
+      };
+
+      if (active) {
+        setBuyNowItems([item]);
+        setBuyNowLoading(false);
+      }
+    };
+
+    void loadBuyNow();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +296,23 @@ export default function CheckoutPage() {
             setSelectedAddressId(data[0].id);
           }
         }
+
+        // Default the "new address" contact to the account's associated phone so
+        // checkout naturally uses the account-approved number. Customers may still
+        // enter another unclaimed delivery-recipient number; the server-side order
+        // guard rejects numbers claimed by a different account (no client-only
+        // bypass).
+        if (!cancelled && name === '' && phone === '' && city === '') {
+          const meta = (user.user_metadata || {}) as Record<string, unknown>;
+          const metaPhone = typeof meta.phone === 'string' ? meta.phone : '';
+          setPhone(metaPhone.replace(/^\+?977/, ''));
+          if (typeof meta.full_name === 'string' && meta.full_name) {
+            setName(meta.full_name);
+          }
+          if (typeof meta.city === 'string' && meta.city) {
+            setCity(meta.city);
+          }
+        }
       } else {
         if (!cancelled) setLoginRequired(true);
       }
@@ -145,6 +322,7 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -160,6 +338,46 @@ export default function CheckoutPage() {
       cancelled = true;
     };
   }, []);
+
+  // Resolve which checkout items are not COD-eligible. Re-runs whenever the
+  // effective line items change (Buy Now intent resolves after mount). A null
+  // cod_enabled is treated as eligible so legacy rows stay purchasable; only an
+  // explicit false blocks. On query failure nothing is blocked client-side — the
+  // server place_order guard remains authoritative.
+  useEffect(() => {
+    if (checkoutItems.length === 0) {
+      setCodBlockedItems([]);
+      setCodBlockedLoading(false);
+      return;
+    }
+
+    let active = true;
+    setCodBlockedLoading(true);
+    const ids = [...new Set(checkoutItems.map((i) => i.id).filter(Boolean))];
+
+    Promise.resolve(
+      supabase
+        .from('products')
+        .select('id, cod_enabled')
+        .in('id', ids)
+        .then(({ data, error }) => {
+          if (!active) return;
+          setCodBlockedLoading(false);
+          if (error || !data) return;
+          const disabled = new Set(
+            data.filter((p) => p.cod_enabled === false).map((p) => String(p.id))
+          );
+          setCodBlockedItems(checkoutItems.filter((i) => disabled.has(i.id)));
+        })
+    ).catch(() => {
+      if (active) setCodBlockedLoading(false);
+    });
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutItems]);
 
   useEffect(() => {
     if (!settings) return;
@@ -211,9 +429,20 @@ export default function CheckoutPage() {
   }, [resolvedPhone, resolvedPhoneValid]);
 
   const canSubmit =
-    !submitting && !loadingUser && availableMethods.length > 0 && items.length > 0 && requiredValid;
+    !submitting &&
+    !loadingUser &&
+    !codBlockedLoading &&
+    codBlockedItems.length === 0 &&
+    availableMethods.length > 0 &&
+    checkoutItems.length > 0 &&
+    requiredValid;
 
   const placeOrder = async () => {
+    // Block duplicate submissions (double-tap / rapid clicks) so a single tap
+    // can never create more than one order.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     setError('');
 
     const {
@@ -222,6 +451,7 @@ export default function CheckoutPage() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
+      submittingRef.current = false;
       setError('Please login before placing an order.');
       setLoginRequired(true);
       router.push('/account');
@@ -259,6 +489,7 @@ export default function CheckoutPage() {
     }
 
     if (addressError) {
+      submittingRef.current = false;
       setError(addressError);
       return;
     }
@@ -271,15 +502,20 @@ export default function CheckoutPage() {
     const settingsMethods = availableMethods.map(([id]) => id);
     if (!settingsMethods.includes(method)) {
       setSubmitting(false);
+      submittingRef.current = false;
       setError('This payment method is unavailable. Please choose another.');
       return;
     }
 
-    const itemsPayload = items.map((i) => ({
-      product_id: i.id,
-      quantity: i.quantity,
-      variant_id: i.variantId || null,
-    }));
+    const itemsPayload = checkoutItems.map((i) => {
+      const rawVariant = i.variantId || null;
+      const variantId =
+        typeof rawVariant === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawVariant)
+          ? rawVariant
+          : null;
+      return { product_id: i.id, quantity: i.quantity, variant_id: variantId };
+    });
 
     const addressPayload = {
       recipient_name,
@@ -296,16 +532,40 @@ export default function CheckoutPage() {
     });
 
     if (rpcError) {
-      console.error('Place order error:', rpcError);
+      console.error('Place order error:', {
+        message: rpcError?.message,
+        code: rpcError?.code,
+        details: rpcError?.details,
+        hint: rpcError?.hint,
+      });
       setError(friendlyOrderError(rpcError.message || ''));
       setSubmitting(false);
+      submittingRef.current = false;
       return;
     }
 
     const created = data as PlacedOrder;
-    clearCart();
+    // Only treat the order as placed when the server actually returned a
+    // confirmed order id. On an ambiguous result keep the cart intact so
+    // nothing is lost; the error is surfaced instead of silently clearing.
+    if (!created || !created.id || !created.order_number) {
+      console.error('Place order returned no order:', data);
+      setError(
+        'Your order could not be confirmed. Please try again, or contact support before retrying to avoid a duplicate.'
+      );
+      setSubmitting(false);
+      submittingRef.current = false;
+      return;
+    }
+    // A Buy Now purchase is a dedicated, separate order: it never overwrites or
+    // clears the customer's normal cart. Only a normal cart checkout clears the
+    // cart contents after the order is confirmed.
+    if (!buyNowItems) {
+      clearCart();
+    }
     setPlacedOrder(created);
     setSubmitting(false);
+    submittingRef.current = false;
   };
 
   if (placedOrder) {
@@ -327,7 +587,7 @@ export default function CheckoutPage() {
               </p>
               <p className="text-xl font-800 text-primary">{placedOrder.order_number}</p>
               <p className="text-sm text-muted-foreground mt-2">
-                Total: {money(Number(placedOrder.total))} · Status:{' '}
+                Total: {money(Number(placedOrder.total))} • Status:{' '}
                 <span className="font-700 text-green-600">{placedOrder.status}</span>
               </p>
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
@@ -385,7 +645,46 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!items.length) {
+  if (buyNowIntent && buyNowLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen pb-24 lg:pb-0 text-center px-4">
+          <div className="max-w-md mx-auto">
+            <div className="w-10 h-10 mx-auto border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-5" />
+            <h1 className="text-2xl font-800 mb-3">Preparing Checkout</h1>
+            <p className="text-muted-foreground mb-6">Reserving your selected product...</p>
+          </div>
+        </main>
+        <Footer />
+        <BottomNav />
+      </>
+    );
+  }
+
+  if (!checkoutItems.length) {
+    if (buyNowError) {
+      return (
+        <>
+          <Header />
+          <main className="min-h-screen pb-24 lg:pb-0 text-center px-4">
+            <div className="max-w-md mx-auto">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-red-50 flex items-center justify-center mb-5">
+                <Icon name="ExclamationTriangleIcon" size={26} className="text-red-500" />
+              </div>
+              <h1 className="text-2xl font-800 mb-3">Buy Now unavailable</h1>
+              <p className="text-muted-foreground mb-6">{buyNowError}</p>
+              <Link href="/products" className="btn-primary inline-flex">
+                Continue Shopping
+              </Link>
+            </div>
+          </main>
+          <Footer />
+          <BottomNav />
+        </>
+      );
+    }
+
     return (
       <>
         <Header />
@@ -401,16 +700,18 @@ export default function CheckoutPage() {
     );
   }
 
-  const itemCount = items.reduce((sum, it) => sum + it.quantity, 0);
-  const savings = items.reduce((acc, it) => {
+  const itemCount = checkoutItems.reduce((sum, it) => sum + it.quantity, 0);
+  const savings = checkoutItems.reduce((acc, it) => {
     if (it.originalPrice && it.originalPrice > it.price) {
       return acc + (it.originalPrice - it.price) * it.quantity;
     }
     return acc;
   }, 0);
-  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - checkoutSubtotal);
   const shippingProgress =
-    freeShippingThreshold > 0 ? Math.min((subtotal / freeShippingThreshold) * 100, 100) : 100;
+    freeShippingThreshold > 0
+      ? Math.min((checkoutSubtotal / freeShippingThreshold) * 100, 100)
+      : 100;
 
   return (
     <div className="min-h-screen bg-background">
@@ -423,11 +724,11 @@ export default function CheckoutPage() {
             Complete your delivery details to place your order.
           </p>
 
-          <div className="grid lg:grid-cols-[1fr_400px] lg:gap-7 items-start">
-            {/* ── Left column: form ── */}
+          <div className="grid lg:grid-cols-[1fr_400px] gap-6 lg:gap-7 items-start">
+            {/* -- Left column: form -- */}
             <section className="space-y-6">
               {/* Contact / delivery details */}
-              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
+              <div className="bg-card rounded-2xl card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
                   <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     1
@@ -561,7 +862,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Payment method */}
-              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
+              <div className="bg-card rounded-2xl card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
                   <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     2
@@ -596,6 +897,33 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
+                {codBlockedItems.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-700 text-amber-800 flex items-center gap-2">
+                      <Icon name="ExclamationTriangleIcon" size={15} />
+                      Cash on Delivery isn&apos;t available for every item
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      These items can&apos;t be paid for on delivery:
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {codBlockedItems.map((i) => (
+                        <li
+                          key={`${i.id}:${i.variantId || 'default'}`}
+                          className="text-xs font-600 text-amber-800 list-disc list-inside"
+                        >
+                          {i.name}
+                          {[i.variantColor, i.variantSize].filter(Boolean).length > 0 &&
+                            ` (${[i.variantColor, i.variantSize].filter(Boolean).join(' • ')})`}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-amber-700 mt-2">
+                      Please remove these items to place an order with Cash on Delivery.
+                    </p>
+                  </div>
+                )}
+
                 {availableMethods.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Cash on Delivery is currently unavailable. Please check back later.
@@ -604,7 +932,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Items */}
-              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
+              <div className="bg-card rounded-2xl card-shadow p-3.5 sm:p-5">
                 <div className="flex items-center gap-3 mb-5">
                   <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-800 text-sm">
                     3
@@ -613,7 +941,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="divide-y divide-border">
-                  {items.map((i) => (
+                  {checkoutItems.map((i) => (
                     <div
                       key={i.id + ':' + (i.variantId || 'default')}
                       className="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
@@ -631,11 +959,11 @@ export default function CheckoutPage() {
                         <p className="font-700 text-sm sm:text-base line-clamp-1">{i.name}</p>
                         {(i.variantSize || i.variantColor) && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {[i.variantColor, i.variantSize].filter(Boolean).join(' · ')}
+                            {[i.variantColor, i.variantSize].filter(Boolean).join(' • ')}
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Qty {i.quantity} × {money(i.price)}
+                          Qty {i.quantity} • {money(i.price)}
                         </p>
                       </div>
                       <b className="text-[13px] flex-shrink-0">{money(i.price * i.quantity)}</b>
@@ -645,7 +973,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Coupon */}
-              <div className="bg-card rounded-lg card-shadow p-3.5 sm:p-5">
+              <div className="bg-card rounded-2xl card-shadow p-3.5 sm:p-5">
                 <label
                   htmlFor="checkout-coupon"
                   className="text-xs font-700 uppercase tracking-widest text-muted-foreground block mb-2"
@@ -683,14 +1011,14 @@ export default function CheckoutPage() {
               </button>
             </section>
 
-            {/* ── Right column: sticky order summary ── */}
-            <aside className="bg-card rounded-lg card-shadow p-4 lg:sticky lg:top-20">
+            {/* -- Right column: sticky order summary -- */}
+            <aside className="bg-card rounded-2xl card-shadow p-4 lg:sticky lg:top-20">
               <h2 className="text-lg font-800 mb-5">Order Summary</h2>
 
               <div className="space-y-3 mb-5">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal ({itemCount} items)</span>
-                  <span className="font-600">{money(subtotal)}</span>
+                  <span className="font-600">{money(checkoutSubtotal)}</span>
                 </div>
 
                 <div className="flex justify-between text-sm">
@@ -709,7 +1037,10 @@ export default function CheckoutPage() {
 
                 {savings > 0 && (
                   <div className="flex justify-between text-sm bg-green-50 rounded-xl px-3 py-2">
-                    <span className="text-green-700 font-600">You&apos;re saving</span>
+                    <span className="text-green-700 font-600 flex items-center gap-1">
+                      <Icon name="CheckBadgeIcon" size={14} />
+                      You&apos;re saving
+                    </span>
                     <span className="text-green-700 font-800">{money(savings)}</span>
                   </div>
                 )}
@@ -740,11 +1071,11 @@ export default function CheckoutPage() {
                 )
               )}
 
-              <div className="border-t border-border my-4" />
-
-              <div className="flex justify-between items-baseline mb-6">
-                <span className="text-base font-800">Total</span>
-                <span className="text-2xl font-800 text-primary">{money(total)}</span>
+              <div className="rounded-xl bg-primary/5 px-4 py-3 mb-6">
+                <div className="flex justify-between items-baseline gap-3">
+                  <span className="text-base font-800 text-primary">Total</span>
+                  <span className="text-2xl font-800 text-primary">{money(total)}</span>
+                </div>
               </div>
 
               <p className="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
@@ -756,7 +1087,7 @@ export default function CheckoutPage() {
         </div>
       </main>
 
-      {/* ── Mobile sticky place-order bar ── */}
+      {/* -- Mobile sticky place-order bar -- */}
       <div
         className="lg:hidden fixed left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-4 pt-3"
         style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))' }}

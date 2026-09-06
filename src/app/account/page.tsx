@@ -13,18 +13,6 @@ import AddressLocationPicker from '@/components/LocationPicker/AddressLocationPi
 import NepalPhoneInput from '@/components/NepalPhoneInput';
 import { normalizeNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
 
-interface Order {
-  id: string;
-  status?: string;
-  orderNumber?: string;
-  createdAt: string;
-  total: number;
-  paymentMethod?: string;
-  paymentStatus?: string;
-  items?: any[];
-  itemCount?: number;
-}
-
 interface Address {
   id: string;
   user_id: string;
@@ -43,8 +31,6 @@ function safeErrorMessage(error?: { message?: string } | null): string {
 export default function AccountPage() {
   const { user, loading: authLoading, loggedIn, profile, logout } = useAuth();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
 
@@ -75,55 +61,6 @@ export default function AccountPage() {
   const [addressError, setAddressError] = useState('');
   const [addressPhoneError, setAddressPhoneError] = useState('');
 
-  const loadOrders = async (userId: string) => {
-    setOrdersLoading(true);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Supabase orders error:', error);
-      setOrders([]);
-      setOrdersLoading(false);
-      return;
-    }
-
-    const orders = data ?? [];
-    let itemCountMap: Record<string, number> = {};
-
-    if (orders.length > 0) {
-      const ids = orders.map((o) => o.id);
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('order_id, quantity')
-        .in('order_id', ids);
-
-      if (!itemsError && orderItems) {
-        itemCountMap = orderItems.reduce<Record<string, number>>((map, row) => {
-          map[row.order_id] = (map[row.order_id] || 0) + Number(row.quantity || 0);
-          return map;
-        }, {});
-      }
-    }
-
-    const mappedOrders: Order[] = orders.map((order) => ({
-      id: order.id,
-      status: order.status,
-      orderNumber: order.order_number,
-      createdAt: order.created_at,
-      total: Number(order.total || 0),
-      paymentMethod: order.payment_method,
-      paymentStatus: order.payment_status,
-      items: order.items || [],
-      itemCount: itemCountMap[order.id],
-    }));
-
-    setOrders(mappedOrders);
-    setOrdersLoading(false);
-  };
-
   const loadAddresses = async (userId: string) => {
     const { data, error } = await supabase
       .from('addresses')
@@ -148,10 +85,8 @@ export default function AccountPage() {
       setProfilePhone(profile.phone ? profile.phone.replace(/^\+?977/, '') : '');
       setProfileCity(user.user_metadata?.city || '');
       setAvatarUrl(profile.avatarUrl);
-      loadOrders(user.id);
       loadAddresses(user.id);
     } else {
-      setOrders([]);
       setAddresses([]);
     }
   }, [authLoading, user]);
@@ -202,6 +137,24 @@ export default function AccountPage() {
     setProfileMessage('');
     setProfileError('');
     setProfilePhoneError('');
+
+    // Claim the phone in the authoritative account-phone registry. This is the
+    // server/database-enforced uniqueness rule (no OTP/SMS, never "verified").
+    // If the migration is not yet applied the RPC is simply absent, so the save
+    // degrades to the legacy behavior; enforcement resumes after deployment.
+    const claim = await supabase.rpc('set_account_phone', { p_phone: phoneCanonical });
+    const claimMsg = claim.error?.message || '';
+    if (/already linked to another account/i.test(claimMsg)) {
+      setProfilePhoneError('This phone number is already linked to another account.');
+      setProfileError('This phone number is already linked to another account.');
+      setProfileSaving(false);
+      return;
+    }
+    if (claim.error && !/does not exist|could not find the function/i.test(claimMsg)) {
+      setProfileError(safeErrorMessage(claim.error));
+      setProfileSaving(false);
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({
       data: {
@@ -389,7 +342,6 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     await logout();
-    setOrders([]);
     setAddresses([]);
   };
 
@@ -529,103 +481,23 @@ export default function AccountPage() {
             </div>
           </section>
 
-          <section className="mb-6">
-            <div className="bg-card rounded-xl border border-border/50 p-3.5 md:p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-base md:text-lg font-800">My Orders</h2>
-                  <p className="text-xs text-muted-foreground mt-1">Your recent purchases</p>
-                </div>
-                <Link href="/products" className="text-xs font-700 text-primary">
-                  Shop Products
-                </Link>
-              </div>
-
-              {ordersLoading ? (
-                <div className="py-10 text-center">
-                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-xs text-muted-foreground">Loading your orders...</p>
-                </div>
-              ) : orders.length === 0 ? (
-                <div className="py-10 text-center border border-dashed border-border rounded-lg">
-                  <Icon
-                    name="ShoppingBagIcon"
-                    size={32}
-                    className="mx-auto mb-3 text-muted-foreground/30"
-                  />
-                  <h3 className="font-800 text-sm mb-1">No orders yet</h3>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Your purchases will appear here after checkout.
-                  </p>
-                  <Link
-                    href="/products"
-                    className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-xs"
-                  >
-                    <Icon name="ShoppingBagIcon" size={14} />
-                    Start Shopping
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {orders.map((order) => (
-                    <Link
-                      key={order.id}
-                      href={`/account/orders/${order.id}`}
-                      className="block border border-border/60 rounded-lg p-3 hover:border-primary/40 hover:bg-muted/20 transition-colors"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-800">
-                            {order.orderNumber
-                              ? `Order ${order.orderNumber}`
-                              : `Order #${order.id}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(order.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-
-                        <div className="sm:text-right">
-                          <p className="text-sm font-800">
-                            रू{Number(order.total || 0).toLocaleString('en-IN')}
-                          </p>
-                          <span
-                            className={`text-xs font-800 ${
-                              order.status === 'Cancelled' || order.status === 'Refunded'
-                                ? 'text-red-600'
-                                : order.status === 'Delivered'
-                                  ? 'text-green-600'
-                                  : 'text-blue-600'
-                            }`}
-                          >
-                            {order.status || 'Pending'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground flex items-center justify-between">
-                        <span>
-                          {order.itemCount ?? order.items?.length ?? 0} item(s)·{' '}
-                          {order.paymentMethod === 'cod'
-                            ? 'Cash on Delivery'
-                            : (order.paymentMethod || 'cod').replace(/^./, (c) => c.toUpperCase())}
-                          {order.paymentStatus ? (
-                            <span className="ml-1 capitalize">· {order.paymentStatus}</span>
-                          ) : null}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-primary font-700 text-xs">
-                          View Details
-                          <Icon name="ArrowRightIcon" size={14} />
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
           <section className="mb-4 space-y-2">
+            <Link
+              href="/account/orders"
+              className="bg-white rounded-lg border border-border/50 p-3 flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Icon name="ArchiveBoxIcon" size={18} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-700">My Orders</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  View your orders and order status.
+                </p>
+              </div>
+              <Icon name="ChevronRightIcon" size={16} className="text-primary shrink-0" />
+            </Link>
+
             <button
               type="button"
               onClick={openProfile}
@@ -653,7 +525,7 @@ export default function AccountPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-700">My Submissions</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  View status of your product submissions.
+                  View the status of your product requests.
                 </p>
               </div>
               <Icon name="ArrowRightIcon" size={16} className="text-primary shrink-0" />

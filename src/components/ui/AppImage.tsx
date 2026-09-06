@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useCallback, useMemo, memo } from 'react';
 import Image from 'next/image';
@@ -68,6 +68,8 @@ const AppImage = memo(function AppImage({
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const isMissingSrc = !src || typeof src !== 'string' || src.trim() === '';
+
   const isExternalUrl = useMemo(() => typeof src === 'string' && src.startsWith('http'), [src]);
   const resolvedUnoptimized = unoptimized || isExternalUrl;
 
@@ -127,7 +129,7 @@ const AppImage = memo(function AppImage({
     onClick,
   ]);
 
-  if (hasError) {
+  if (hasError || isMissingSrc) {
     if (fill) {
       return (
         <div className="absolute inset-0 overflow-hidden bg-muted/40">
@@ -148,16 +150,18 @@ const AppImage = memo(function AppImage({
   // External URLs (e.g. Supabase Storage public objects, Unsplash, Pexels) are
   // rendered through a plain <img> instead of next/image. The app already opts
   // out of the Next image optimizer globally (images.unoptimized: true), so
-  // next/image provides no optimization/security benefit here — but it DOES add
+  // next/image provides no optimization/security benefit here â€” but it DOES add
   // production-only remote-source validation on top that can incorrectly fail
   // CMS/Supabase URLs and trigger the error fallback. A plain <img> fetches the
   // exact public URL directly, preserving object-fit, alt, loading and the
   // on-error fallback while remaining just as secure.
   if (isExternalUrl && !hasError) {
     const imgStyle: React.CSSProperties = { objectFit };
-    const imgClassName = `${imageClassName} ${
-      isLoading ? 'opacity-0' : 'opacity-100'
-    } transition-opacity duration-200`;
+    // Always render the image fully visible. Fading it in from onLoad has a
+    // race with cached images (load can finish before React's onLoad fires),
+    // which once left thumbnails/stage permanently blank. The muted background
+    // from imageClassName still signals loading without hiding the image.
+    const imgClassName = `${imageClassName} opacity-100 transition-opacity duration-200`;
 
     if (fill) {
       return (

@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
+import OrderTracker from './OrderTracker';
 
 interface Order {
   id: string;
@@ -25,6 +26,9 @@ interface Order {
   phone?: string;
   address?: string;
   city?: string;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  cancelled_at?: string | null;
 }
 
 interface OrderItem {
@@ -35,8 +39,6 @@ interface OrderItem {
   quantity: number;
   image?: string | null;
 }
-
-const STATUS_STEPS = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered'];
 
 export default function OrderDetailPage({ id }: { id: string }) {
   const [order, setOrder] = useState<Order | null>(null);
@@ -93,6 +95,9 @@ export default function OrderDetailPage({ id }: { id: string }) {
         phone: orderRes.data.phone,
         address: orderRes.data.address,
         city: orderRes.data.city,
+        shipped_at: orderRes.data.shipped_at,
+        delivered_at: orderRes.data.delivered_at,
+        cancelled_at: orderRes.data.cancelled_at,
       });
       setItems((itemsRes.data ?? []) as OrderItem[]);
       setLoading(false);
@@ -103,12 +108,6 @@ export default function OrderDetailPage({ id }: { id: string }) {
       cancelled = true;
     };
   }, [id]);
-
-  const currentStep = order?.status
-    ? STATUS_STEPS.indexOf(order.status === 'Placed' ? 'Pending' : order.status)
-    : -1;
-  const isCancelled = order?.status === 'Cancelled';
-  const isRefunded = order?.status === 'Refunded';
 
   const money = (v: number | undefined | null) =>
     `रू${Math.round(Number(v || 0)).toLocaleString('en-IN')}`;
@@ -139,7 +138,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
             />
             <h1 className="text-2xl font-800 mb-2">Order not found</h1>
             <p className="text-muted-foreground mb-6">{error || 'This order does not exist.'}</p>
-            <Link href="/account" className="btn-primary inline-flex">
+            <Link href="/account/orders" className="btn-primary inline-flex">
               Back to My Orders
             </Link>
           </div>
@@ -156,7 +155,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
       <main className="pb-24 lg:pb-0">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <Link
-            href="/account"
+            href="/account/orders"
             className="inline-flex items-center gap-2 text-sm text-primary font-700 hover:underline mb-6"
           >
             <Icon name="ArrowLeftIcon" size={15} />
@@ -164,8 +163,8 @@ export default function OrderDetailPage({ id }: { id: string }) {
           </Link>
 
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-800">
+            <div className="min-w-0">
+              <h1 className="text-2xl md:text-3xl font-800 break-words">
                 Order {order.order_number || order.id}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
@@ -192,60 +191,11 @@ export default function OrderDetailPage({ id }: { id: string }) {
             </span>
           </div>
 
-          {/* Status timeline */}
-          {isCancelled || isRefunded ? (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-5 mb-6 flex items-center gap-3">
-              <Icon name="XCircleIcon" size={24} className="text-red-600" />
-              <p className="text-sm font-700 text-red-700">
-                {isRefunded ? 'This order was refunded.' : 'This order was cancelled.'}
-              </p>
-            </div>
-          ) : (
-            <div className="bg-card rounded-2xl card-shadow p-6 mb-6">
-              <div className="flex items-center justify-between">
-                {STATUS_STEPS.map((step, idx) => (
-                  <div key={step} className="flex-1 flex flex-col items-center">
-                    <div className="flex items-center w-full">
-                      <div
-                        className={`h-1 flex-1 ${
-                          idx === 0
-                            ? 'bg-transparent'
-                            : idx <= currentStep
-                              ? 'bg-green-500'
-                              : 'bg-muted'
-                        }`}
-                      />
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-800 ${
-                          idx <= currentStep
-                            ? 'bg-green-500 text-white'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {idx < currentStep ? <Icon name="CheckIcon" size={14} /> : idx + 1}
-                      </div>
-                      <div
-                        className={`h-1 flex-1 ${
-                          idx === STATUS_STEPS.length - 1
-                            ? 'bg-transparent'
-                            : idx < currentStep
-                              ? 'bg-green-500'
-                              : 'bg-muted'
-                        }`}
-                      />
-                    </div>
-                    <span
-                      className={`text-xs font-600 mt-2 ${
-                        idx <= currentStep ? 'text-green-600' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {step}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Status tracking — compact summary with expandable full timeline.
+              Uses only real YourMarket order data; never fabricates events. */}
+          <div className="mb-6">
+            <OrderTracker order={order} />
+          </div>
 
           {/* Items */}
           <section className="bg-card rounded-2xl card-shadow p-6 mb-6">

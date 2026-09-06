@@ -10,6 +10,10 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import PasswordlessAuth from '@/components/auth/PasswordlessAuth';
 import NepalPhoneInput from '@/components/NepalPhoneInput';
+import RequestLocationPicker, {
+  resolveRequestLocation,
+  type SavedAddress,
+} from '@/components/LocationPicker/RequestLocationPicker';
 import { normalizeNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
 import {
   uploadSubmissionImage,
@@ -26,7 +30,6 @@ interface ImagePreview {
   error?: string;
 }
 
-const CONDITIONS = ['New', 'Like New', 'Used'];
 const MAX_IMAGES = 5;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -40,16 +43,17 @@ export default function SendProductPage() {
   const [form, setForm] = useState({
     productName: '',
     category: '',
-    brand: '',
-    condition: 'New',
-    expectedPrice: '',
     quantity: '1',
-    description: '',
-    city: '',
     customerName: '',
     customerEmail: '',
     customerPhone: '',
   });
+
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useNewAddress, setUseNewAddress] = useState(false);
+  const [locationAddress, setLocationAddress] = useState('');
+  const [locationCity, setLocationCity] = useState('');
 
   const [images, setImages] = useState<ImagePreview[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -90,19 +94,19 @@ export default function SendProductPage() {
       if (!form.category) {
         return 'Please select a category.';
       }
-      if (form.expectedPrice === '' || Number(form.expectedPrice) < 0) {
-        return 'Please enter a valid price (0 or greater).';
-      }
       const qty = Number(form.quantity);
       if (!Number.isInteger(qty) || qty < 1) {
         return 'Quantity must be a whole number of 1 or more.';
       }
-      if (!CONDITIONS.includes(form.condition)) {
-        return 'Please select a valid product condition.';
-      }
-      const desc = form.description.trim();
-      if (!desc || desc.length < 10 || desc.length > 2000) {
-        return 'Description must be between 10 and 2000 characters.';
+      const { error: locationError } = resolveRequestLocation({
+        savedAddresses,
+        selectedAddressId,
+        useNewAddress,
+        address: locationAddress,
+        city: locationCity,
+      });
+      if (locationError) {
+        return locationError;
       }
       return '';
     }
@@ -144,10 +148,35 @@ export default function SendProductPage() {
         customerName: profile.name,
         customerEmail: profile.email,
         customerPhone: profile.phone ? profile.phone.replace(/^\+?977/, '') : prev.customerPhone,
-        city: user.user_metadata?.city || prev.city,
       }));
     }
   }, [user, profile.name, profile.email, profile.phone]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (!cancelled) {
+        if (!error && data && data.length > 0) {
+          setSavedAddresses(data as SavedAddress[]);
+          setSelectedAddressId(data[0].id);
+        } else {
+          setUseNewAddress(true);
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -229,7 +258,7 @@ export default function SendProductPage() {
     setSubmitError('');
 
     if (!loggedIn || !user) {
-      setSubmitError('Please sign in to submit a product.');
+      setSubmitError('Please sign in to send a product request.');
       return;
     }
 
@@ -261,22 +290,20 @@ export default function SendProductPage() {
       setSubmitError('Please select a category.');
       return;
     }
-    if (form.expectedPrice === '' || Number(form.expectedPrice) < 0) {
-      setSubmitError('Please enter a valid price (0 or greater).');
-      return;
-    }
     const qty = Number(form.quantity);
     if (!Number.isInteger(qty) || qty < 1) {
       setSubmitError('Quantity must be a whole number of 1 or more.');
       return;
     }
-    if (!CONDITIONS.includes(form.condition)) {
-      setSubmitError('Please select a valid product condition.');
-      return;
-    }
-    const desc = form.description.trim();
-    if (!desc || desc.length < 10 || desc.length > 2000) {
-      setSubmitError('Description must be between 10 and 2000 characters.');
+    const { snapshot: locationSnapshot, error: locationError } = resolveRequestLocation({
+      savedAddresses,
+      selectedAddressId,
+      useNewAddress,
+      address: locationAddress,
+      city: locationCity,
+    });
+    if (locationError) {
+      setSubmitError(locationError);
       return;
     }
 
@@ -306,12 +333,9 @@ export default function SendProductPage() {
         customer_phone: phone,
         product_name: form.productName.trim(),
         category: form.category,
-        brand: form.brand.trim() || null,
-        condition: form.condition,
-        expected_price: Number(form.expectedPrice),
+        expected_price: 0,
         quantity: qty,
-        description: desc,
-        city: form.city.trim() || null,
+        city: locationSnapshot,
         image_urls: imageUrls,
       });
 
@@ -322,7 +346,12 @@ export default function SendProductPage() {
             deleteSubmissionImage(img.path);
           }
         }
-        setSubmitError('Failed to submit. Please try again.');
+        const errMsg = typeof error.message === 'string' ? error.message : '';
+        if (/already linked to another account/i.test(errMsg)) {
+          setSubmitError('This phone number is already linked to another account.');
+        } else {
+          setSubmitError('Failed to send your request. Please try again.');
+        }
         setSubmitting(false);
         return;
       }
@@ -360,11 +389,11 @@ export default function SendProductPage() {
               <div className="w-12 h-12 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
                 <Icon name="PaperAirplaneIcon" size={24} className="text-primary" />
               </div>
-              <h1 className="text-lg font-800 mb-2">Send Your Product</h1>
-              <p className="text-muted-foreground text-sm mb-2">Earn with YourMarket</p>
+              <h1 className="text-lg font-800 mb-2">Request a Product</h1>
+              <p className="text-muted-foreground text-sm mb-2">Tell us what you can&apos;t find</p>
               <p className="text-sm text-muted-foreground mb-8">
-                Sign in to submit your product for review. YourMarket will review the details before
-                the product can be published.
+                Sign in to send a product request. Share a photo and details of the product
+                you&apos;re looking for, and our team will help you find it.
               </p>
               <button
                 type="button"
@@ -405,14 +434,13 @@ export default function SendProductPage() {
               <div className="w-16 h-16 mx-auto rounded-full bg-success/10 flex items-center justify-center mb-5">
                 <Icon name="CheckCircleIcon" size={36} className="text-success" />
               </div>
-              <h1 className="text-lg font-800 mb-3">Product Submitted for Review</h1>
+              <h1 className="text-lg font-800 mb-3">Request Submitted</h1>
               <p className="text-sm text-muted-foreground mb-2">
-                Thank you for your submission! YourMarket will review the details before the product
-                can be published.
+                Thank you for your request! Our team will review it and help you find the product.
               </p>
               <p className="text-xs text-muted-foreground mb-8">
-                Submission does not guarantee approval. Your product is not publicly listed until
-                reviewed and approved by an admin.
+                Every request is reviewed by an admin. We can&apos;t guarantee availability, but
+                we&apos;ll do our best to help you get the product.
               </p>
               <div className="flex flex-col gap-3">
                 <Link href="/account/submissions" className="btn-primary py-3 text-center">
@@ -448,12 +476,15 @@ export default function SendProductPage() {
                 <Icon name="ArrowLeftIcon" size={20} className="text-muted-foreground" />
               </Link>
               <div>
-                <h1 className="text-lg font-800">Send Your Product</h1>
-                <p className="text-xs text-muted-foreground">Earn with YourMarket</p>
+                <h1 className="text-lg font-800">Request a Product</h1>
+                <p className="text-xs text-muted-foreground">
+                  Tell us what you&apos;re looking for
+                </p>
               </div>
             </div>
             <p className="text-sm text-muted-foreground ml-11">
-              Fill in the details below. YourMarket will review before publishing.
+              Upload a photo and share the product details. Our team will review your request and
+              help you find the product.
             </p>
           </div>
 
@@ -513,8 +544,8 @@ export default function SendProductPage() {
                 Your Information
               </h2>
               <p className="text-xs text-muted-foreground mb-4">
-                Your contact information is used so YourMarket can reach you about your submitted
-                product.
+                Your contact information is used so YourMarket can reach you about your product
+                request.
               </p>
               <div className="space-y-3">
                 <div>
@@ -552,8 +583,7 @@ export default function SendProductPage() {
                     placeholder="98XXXXXXXX"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Nepal mobile number. Used only to contact you about this submission. Not
-                    verified.
+                    Nepal mobile number. Used only to contact you about this request. Not verified.
                   </p>
                 </div>
               </div>
@@ -599,93 +629,42 @@ export default function SendProductPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Brand
+                    Quantity *
                   </label>
                   <input
-                    type="text"
-                    value={form.brand}
-                    onChange={(e) => updateField('brand', e.target.value)}
-                    placeholder="e.g. Samsung, Apple"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.quantity}
+                    onChange={(e) => updateField('quantity', e.target.value)}
+                    placeholder="1"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Condition *
-                  </label>
-                  <div className="flex gap-2">
-                    {CONDITIONS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => updateField('condition', c)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-600 border transition-colors ${
-                          form.condition === c
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-background text-muted-foreground border-border hover:border-primary/40'
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                      Price (Rs.) *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.expectedPrice}
-                      onChange={(e) => updateField('expectedPrice', e.target.value)}
-                      placeholder="0.00"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                      Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={form.quantity}
-                      onChange={(e) => updateField('quantity', e.target.value)}
-                      placeholder="1"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    Description * <span className="opacity-60">(10–2000 characters)</span>
-                  </label>
-                  <textarea
-                    value={form.description}
-                    onChange={(e) => updateField('description', e.target.value)}
-                    placeholder="Describe your product, its features, and condition..."
-                    rows={4}
-                    maxLength={2000}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1 text-right">
-                    {form.description.length}/2000
+                <div className="pt-2 border-t border-border">
+                  <h3 className="text-sm font-800 text-foreground mb-3 flex items-center gap-2">
+                    <Icon name="MapPinIcon" size={18} className="text-primary" />
+                    Delivery Location
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Let us know where you&apos;d like the product delivered.
                   </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-600 text-muted-foreground mb-1.5">
-                    City / Location
-                  </label>
-                  <input
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => updateField('city', e.target.value)}
-                    placeholder="e.g. Kathmandu, Pokhara"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  <RequestLocationPicker
+                    savedAddresses={savedAddresses}
+                    selectedAddressId={selectedAddressId}
+                    useNewAddress={useNewAddress}
+                    onSelectSaved={(id) => {
+                      setSelectedAddressId(id);
+                      setUseNewAddress(false);
+                    }}
+                    onUseNew={() => {
+                      setUseNewAddress(true);
+                      setSelectedAddressId(null);
+                    }}
+                    address={locationAddress}
+                    onAddressChange={setLocationAddress}
+                    city={locationCity}
+                    onCityChange={setLocationCity}
                   />
                 </div>
               </div>
@@ -771,7 +750,7 @@ export default function SendProductPage() {
                 Review & Submit
               </h2>
               <p className="text-xs text-muted-foreground mb-4">
-                Review your details below before submitting for YourMarket review.
+                Review your request details below before sending.
               </p>
               <dl className="space-y-3 text-sm">
                 <ReviewRow label="Full Name" value={form.customerName} />
@@ -782,16 +761,23 @@ export default function SendProductPage() {
                 />
                 <ReviewRow label="Product" value={form.productName} />
                 <ReviewRow label="Category" value={form.category} />
-                <ReviewRow label="Brand" value={form.brand} />
-                <ReviewRow label="Condition" value={form.condition} />
-                <ReviewRow label="Price" value={`Rs. ${Number(form.expectedPrice).toFixed(2)}`} />
                 <ReviewRow label="Quantity" value={form.quantity} />
-                <ReviewRow label="City" value={form.city || '—'} />
+                <ReviewRow
+                  label="Delivery Location"
+                  value={
+                    resolveRequestLocation({
+                      savedAddresses,
+                      selectedAddressId,
+                      useNewAddress,
+                      address: locationAddress,
+                      city: locationCity,
+                    }).snapshot || '—'
+                  }
+                />
                 <ReviewRow
                   label="Images"
                   value={`${images.filter((i) => !i.error).length} image(s)`}
                 />
-                <ReviewRow label="Description" value={form.description} />
               </dl>
             </section>
           )}
@@ -829,16 +815,16 @@ export default function SendProductPage() {
                 {submitting ? (
                   <span className="inline-flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Submitting...
+                    Sending...
                   </span>
                 ) : (
-                  'Submit for Review'
+                  'Send Request'
                 )}
               </button>
             )}
 
             <p className="text-xs text-muted-foreground text-center mt-3">
-              Your submission will be reviewed by YourMarket before publishing.
+              Our team will review your request and help you find the product.
             </p>
           </div>
         </div>

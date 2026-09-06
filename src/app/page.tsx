@@ -8,6 +8,7 @@ import SendProductBanner from '@/components/SendProductBanner';
 import CategoriesSection from '@/components/CategoriesSection';
 import DealsSection from '@/components/DealsSection';
 import FeaturedProducts from '@/components/FeaturedProducts';
+import AllProductsSection from '@/components/AllProductsSection';
 
 export default function HomePage() {
   return (
@@ -17,12 +18,16 @@ export default function HomePage() {
       <main className="flex-1 pb-28 lg:pb-0">
         <HeroSection />
 
-        <PromoBannerSection />
+        <CategoriesSection />
 
         <SendProductBanner />
 
-        <CategoriesSection />
+        <PromoBannerSection />
+
+        <AllProductsSection />
+
         <DealsSection />
+
         <FeaturedProducts />
       </main>
 

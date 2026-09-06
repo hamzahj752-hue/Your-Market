@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import BannerCreative from '@/components/banner/BannerCreative';
 import { fetchHeroBanners, fetchHeroAutoplay, BriefHero } from '@/lib/homepageCms';
 import { getSafeInternalPath } from '@/lib/auth';
 
@@ -24,6 +23,18 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// Returns a safe internal destination for a banner, or null when the banner is
+// not clickable. Uses the storefront's existing safe-internal-path rule so an
+// unsafe/empty value falls back to null (no navigation) instead of producing a
+// malformed link. A linked-but-deleted product still resolves to the product
+// route where the storefront's product-not-found handling takes over gracefully
+// — it never silently points at a different product.
+function bannerDestination(banner: BriefHero): string | null {
+  if (!banner.cta_url) return null;
+  const safe = getSafeInternalPath(banner.cta_url, '');
+  return safe === '' ? null : safe;
+}
+
 export default function HeroSection() {
   const [banners, setBanners] = useState<BriefHero[]>([]);
   const [autoplayEnabled, setAutoplayEnabled] = useState(true);
@@ -33,6 +44,9 @@ export default function HeroSection() {
 
   const touchStartX = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set true when a swipe/drag occurred so a subsequent synthetic click on a
+  // clickable slide is ignored — prevents accidental navigation while swiping.
+  const swipedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -78,25 +92,39 @@ export default function HeroSection() {
 
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    swipedRef.current = false;
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current == null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
-    if (Math.abs(dx) > 40) {
+    const isSwipe = Math.abs(dx) > 40;
+    if (isSwipe) {
+      swipedRef.current = true;
       if (dx < 0) next();
       else prev();
+    }
+  };
+
+  // Called on the slide link onClick. A touch swipe sets swipedRef before the
+  // synthetic click arrives, so we cancel navigation for that gesture.
+  const onSlideClick = (e: React.MouseEvent) => {
+    if (swipedRef.current) {
+      e.preventDefault();
+      swipedRef.current = false;
     }
   };
 
   if (slideCount === 0) return null;
 
   return (
-    <section className="pt-1" aria-label="Featured banners">
+    <section className="pt-2" aria-label="Featured banners">
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
+        {/* OUTER CAROUSEL: clips horizontally so the foreground never causes
+            document scroll and adjacent slides never bleed in during swipe. */}
         <div
-          className="relative w-full overflow-hidden rounded-xl md:rounded-2xl bg-muted/40 shadow-sm select-none group"
+          className="relative w-full overflow-hidden select-none group"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           onMouseEnter={() => setPaused(true)}
@@ -113,59 +141,21 @@ export default function HeroSection() {
           >
             {banners.map((b, i) => {
               const isActive = i === idx;
-              const content = (
-                <>
-                  <div className="relative h-32 sm:h-48 md:h-64 lg:h-80 w-full">
-                    <AppImage
-                      src={b.image_url}
-                      alt={b.title || 'Your Market'}
-                      fill
-                      priority={i === 0}
-                      sizes="100vw"
-                      className="object-contain bg-muted/40"
-                    />
-                    <div className="absolute inset-0 from-black/45 via-transparent to-transparent bg-gradient-to-r" />
-                  </div>
-
-                  {(b.title || b.subtitle || b.cta_text) && (
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="px-5 sm:px-8 md:px-12 max-w-xl">
-                        {b.subtitle && (
-                          <p className="text-white/85 text-xs sm:text-sm font-600 mb-1.5">
-                            {b.subtitle}
-                          </p>
-                        )}
-                        {b.title && (
-                          <h1 className="text-xl sm:text-3xl md:text-4xl font-800 text-white leading-tight drop-shadow-md">
-                            {b.title}
-                          </h1>
-                        )}
-                        {b.cta_text && b.cta_url && getSafeInternalPath(b.cta_url, '') !== '' && (
-                          <Link
-                            href={getSafeInternalPath(b.cta_url, '/')}
-                            className="inline-flex items-center gap-1.5 mt-3 sm:mt-4 bg-white text-accent font-800 text-xs sm:text-sm px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-accent hover:bg-accent hover:text-accent-foreground transition-colors"
-                          >
-                            {b.cta_text}
-                            <Icon name="ArrowRightIcon" size={15} />
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
-              );
-
+              const dest = bannerDestination(b);
               return (
-                <div
+                <BannerCreative
                   key={b.id || i}
-                  className="relative w-full flex-shrink-0"
-                  role="group"
-                  aria-roledescription="slide"
-                  aria-label={`Slide ${i + 1} of ${slideCount}`}
-                  aria-hidden={!isActive}
-                >
-                  {content}
-                </div>
+                  banner={b}
+                  href={dest}
+                  isFirst={i === 0}
+                  isActive={isActive}
+                  onSlideClick={onSlideClick}
+                  priority={i === 0}
+                  headingLevel="h1"
+                  accessibleLabel={
+                    b.title ? `${b.title}${b.cta_text ? ` — ${b.cta_text}` : ''}` : 'View banner'
+                  }
+                />
               );
             })}
           </div>
@@ -174,14 +164,20 @@ export default function HeroSection() {
           {slideCount > 1 && (
             <>
               <button
-                onClick={prev}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prev();
+                }}
                 aria-label="Previous banner"
                 className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/70 hover:bg-white text-foreground flex items-center justify-center transition-all shadow-sm opacity-0 group-hover:opacity-100 md:opacity-100"
               >
                 <Icon name="ChevronLeftIcon" size={18} />
               </button>
               <button
-                onClick={next}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  next();
+                }}
                 aria-label="Next banner"
                 className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/70 hover:bg-white text-foreground flex items-center justify-center transition-all shadow-sm opacity-0 group-hover:opacity-100 md:opacity-100"
               >
@@ -190,13 +186,17 @@ export default function HeroSection() {
             </>
           )}
 
-          {/* Dots */}
+          {/* Dots — sit on the lower edge of the inner panel, above the
+              foreground pop-out region */}
           {slideCount > 1 && (
-            <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/35 backdrop-blur px-2.5 py-1.5">
               {banners.map((b, i) => (
                 <button
                   key={b.id || i}
-                  onClick={() => goTo(i)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goTo(i);
+                  }}
                   aria-label={`Go to banner ${i + 1}`}
                   aria-current={i === idx}
                   className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${

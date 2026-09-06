@@ -71,3 +71,8 @@ android/
 supabase/.temp/
 
 *.backup*
+
+dev-server.log
+.next-bannercheck/
+.next-verify/
+qa/

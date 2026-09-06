@@ -10,7 +10,7 @@ export default function CartItemRow({ item }: { item: CartItemType }) {
   const key = cartKey(item);
 
   return (
-    <div className="flex gap-2.5 p-2.5 bg-white rounded-lg border border-border/60 group">
+    <div className="flex gap-2.5 p-2.5 bg-white rounded-2xl border border-slate-200/70 shadow-[0_1px_6px_rgba(15,23,42,0.04)] group">
       {/* Image */}
       <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted/30">
         <AppImage

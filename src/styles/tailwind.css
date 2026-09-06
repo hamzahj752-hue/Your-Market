@@ -23,6 +23,11 @@
   --success: #10b981;
   --warning: #f59e0b;
   --deal-red: #ef4444;
+  /* Shared premium motion easings. --ease-premium is the default soft
+     ease-out curve; --ease-settle adds a restrained overshoot for tiny
+     selections (dots/chips/hearts) without becoming bouncy. */
+  --ease-premium: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-settle: cubic-bezier(0.34, 1.12, 0.38, 1);
 }
 
 @layer base {
@@ -401,6 +406,51 @@
       0 4px 12px rgba(0, 0, 0, 0.06);
   }
 
+  /* -------------------------------------------------- */
+  /* Premium motion system (transform/opacity forward)  */
+  /* -------------------------------------------------- */
+
+  /* Product image exit: soft blur -> fade -> gentle downward drift. */
+  .ym-img-exit {
+    animation: ymImgExit 0.32s var(--ease-premium) forwards;
+    pointer-events: none;
+  }
+
+  /* Product image enter: enters slightly blurred/faded, settles sharp. */
+  .ym-img-enter {
+    animation: ymImgEnter 0.38s var(--ease-premium) forwards;
+  }
+
+  /* Subtle value/section text crossfade (price, stock, SKU, lists). */
+  .ym-text-in {
+    animation: ymTextIn 0.24s var(--ease-premium) forwards;
+  }
+
+  /* Staggered list entrance (category product grids on Home). */
+  .ym-list {
+    animation: ymListEnter 0.34s var(--ease-premium) backwards;
+  }
+
+  /* Tiny pop used for favorite hearts and value feedback. */
+  .ym-pop {
+    animation: ymPop 0.28s var(--ease-settle) forwards;
+  }
+
+  /* Shape/color selection pill. Transitions smoothly into its active state;
+     active state styling is applied by the component. */
+  .ym-chip {
+    transition:
+      background-color 0.22s var(--ease-premium),
+      color 0.22s var(--ease-premium),
+      border-color 0.22s var(--ease-premium),
+      box-shadow 0.22s ease,
+      transform 0.22s var(--ease-settle);
+  }
+
+  .ym-chip:active {
+    transform: scale(0.96);
+  }
+
   .progress-bar-anim {
     animation: progressGrow 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
@@ -449,6 +499,66 @@
   }
 }
 
+@keyframes ymImgExit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    filter: blur(9px);
+    transform: translate3d(0, 16px, 0) scale(0.985);
+  }
+}
+
+@keyframes ymImgEnter {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate3d(0, 18px, 0) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ymTextIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ymListEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ymPop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @keyframes floatBadge {
   0%,
   100% {
@@ -492,5 +602,23 @@
   .section-pad {
     padding-top: 1rem;
     padding-bottom: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ym-img-exit,
+  .ym-img-enter,
+  .ym-text-in,
+  .ym-pop,
+  .ym-list {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .ym-chip {
+    transition:
+      background-color 0.1s ease,
+      color 0.1s ease,
+      border-color 0.1s ease;
   }
 }

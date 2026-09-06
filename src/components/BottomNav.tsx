@@ -36,10 +36,10 @@ export default function BottomNav() {
             <span className="text-[9px] font-600 leading-tight mt-0.5">Home</span>
           </Link>
 
-          {/* Center raised action: Send Your Product */}
+          {/* Center raised action: Request a Product */}
           <Link
             href="/account/send-product"
-            aria-label="Send Your Product"
+            aria-label="Request a Product"
             className="flex flex-col items-center justify-center -mt-4"
           >
             <span
@@ -51,7 +51,7 @@ export default function BottomNav() {
             >
               <Icon name="PaperAirplaneIcon" variant="solid" size={22} className="text-white" />
             </span>
-            <span className="text-[9px] font-600 text-primary leading-tight mt-0.5">Send</span>
+            <span className="text-[9px] font-600 text-primary leading-tight mt-0.5">Request</span>
           </Link>
 
           {/* Cart */}
