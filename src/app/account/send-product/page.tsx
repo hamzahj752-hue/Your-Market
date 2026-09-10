@@ -527,7 +527,7 @@ export default function SendProductPage() {
                           : 'border-border text-muted-foreground'
                     }`}
                   >
-                    {step > s.n ? 'âœ“' : s.n}
+                    {step > s.n ? 'Ã¢Å“â€œ' : s.n}
                   </span>
                   {s.label}
                 </button>
@@ -781,7 +781,7 @@ export default function SendProductPage() {
                       useNewAddress,
                       address: locationAddress,
                       city: locationCity,
-                    }).snapshot || 'â€”'
+                    }).snapshot || 'Ã¢â‚¬â€'
                   }
                 />
                 <ReviewRow
@@ -856,8 +856,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4 border-b border-border last:border-0 pb-2 last:pb-0">
       <dt className="text-muted-foreground shrink-0">{label}</dt>
-      <dd className="text-right font-600 text-foreground break-words">{value || 'â€”'}</dd>
+      <dd className="text-right font-600 text-foreground break-words">{value || 'Ã¢â‚¬â€'}</dd>
     </div>
   );
 }
-
