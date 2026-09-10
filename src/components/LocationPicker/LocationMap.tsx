@@ -20,10 +20,14 @@ export default function LocationMap({ location, onLocationChange, className }: L
 
     const defaultLocation: [number, number] = [27.7172, 85.324];
 
-    const map = L.map(mapRef.current).setView(
-      location ? [location.lat, location.lng] : defaultLocation,
-      location ? 15 : 12
-    );
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      touchZoom: true,
+      dragging: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: false,
+    }).setView(location ? [location.lat, location.lng] : defaultLocation, location ? 15 : 12);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -40,7 +44,7 @@ export default function LocationMap({ location, onLocationChange, className }: L
       if (markerRef.current) {
         markerRef.current.setLatLng(event.latlng);
       } else {
-        markerRef.current = L.marker(event.latlng).addTo(map);
+        markerRef.current = L.marker(event.latlng, { draggable: true }).addTo(map);
       }
     });
 
@@ -53,22 +57,37 @@ export default function LocationMap({ location, onLocationChange, className }: L
     return () => {
       map.remove();
       mapInstance.current = null;
+      markerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Create/replace the draggable marker and keep it in sync with `location`.
   useEffect(() => {
     if (!mapInstance.current || !location) return;
 
     const latLng: L.LatLngExpression = [location.lat, location.lng];
 
-    mapInstance.current.setView(latLng, 16);
-
-    if (markerRef.current) {
-      markerRef.current.setLatLng(latLng);
-    } else {
-      markerRef.current = L.marker(latLng).addTo(mapInstance.current);
+    const existing = mapInstance.current.getPane('markerPane');
+    if (existing) {
+      mapInstance.current.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+          mapInstance.current?.removeLayer(layer);
+        }
+      });
     }
+
+    markerRef.current = L.marker(latLng, { draggable: true }).addTo(mapInstance.current);
+    markerRef.current.on('dragend', () => {
+      const pos = markerRef.current?.getLatLng();
+      if (pos) {
+        onLocationChange({ lat: pos.lat, lng: pos.lng });
+      }
+    });
+
+    mapInstance.current.setView(latLng, 16);
+    mapInstance.current.invalidateSize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   return (
@@ -78,7 +97,7 @@ export default function LocationMap({ location, onLocationChange, className }: L
         className={`w-full h-[170px] sm:h-[200px] rounded-2xl overflow-hidden border border-border ${className || ''}`}
       />
       <p className="text-[11px] text-muted-foreground mt-1.5">
-        Tap the map to adjust the delivery location.
+        Drag the pin or tap the map to set the exact delivery location.
       </p>
     </div>
   );

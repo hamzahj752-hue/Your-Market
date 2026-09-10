@@ -12,14 +12,23 @@ import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 
 import ReviewsSection from '@/components/product/ReviewsSection';
+import DeliveryDetailsSection from '@/components/product/DeliveryDetailsSection';
+import ProductHighlightsSection from '@/components/product/ProductHighlightsSection';
+import AllDetailsSection from '@/components/product/AllDetailsSection';
+
 import ProductCard, { CardProduct } from '@/components/product/ProductCard';
 
+import PromoBannerSection from '@/components/PromoBannerSection';
+import FoodSection from '@/components/FoodSection';
+import CategoriesSection from '@/components/CategoriesSection';
+
 import { useCart } from '@/context/CartContext';
+import { useFoodCart } from '@/context/FoodCartContext';
 import { useWishlist } from '@/context/WishlistContext';
 
 import { supabase } from '@/lib/supabase';
 
-import { hasProductDetails, parseProductDetails, ProductDetails } from '@/lib/productDetails';
+import { parseProductDetails, ProductDetails } from '@/lib/productDetails';
 
 /* =========================================================
    TYPES
@@ -47,6 +56,29 @@ export interface Product {
   brand: string;
 
   inStock: boolean;
+
+  /** True when the admin manually marked this product Sold Out. */
+  soldOut?: boolean;
+
+  /** True for food products: availability is Sold-Out-only (no numeric stock). */
+  foodCategoryId?: string | null;
+
+  /** True when this product belongs to a Food Category. */
+  isFood?: boolean;
+
+  /**
+   * Admin Reviews ON/OFF control (products.reviews_enabled, added by migration
+   * 20260908000000). Defaults to ON so products created before the column
+   * exists continue to show their reviews.
+   */
+  reviewsEnabled?: boolean;
+
+  /** Per-product Card Image Appearance (products.card_image_*). Optional —
+      legacy rows fall back to the canonical default (contain, 100%, centered). */
+  cardImageFit?: 'cover' | 'contain';
+  cardImageScale?: number;
+  cardImageX?: number;
+  cardImageY?: number;
 
   description?: string;
 
@@ -82,6 +114,15 @@ export interface ProductVariant {
 }
 
 const money = (value: number) => `रू${Math.round(value).toLocaleString('en-IN')}`;
+
+const EMPTY_DETAILS: ProductDetails = {
+  highlights: [],
+  specifications: [],
+  packageContents: [],
+  delivery: null,
+  warranty: null,
+  returns: null,
+};
 
 const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
@@ -265,6 +306,8 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
   const { addToCart } = useCart();
 
+  const { addFood } = useFoodCart();
+
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   /* ---------------------------------------------------------
@@ -427,19 +470,27 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
   const effectiveImage = selectedVariant?.image_url || product?.image || '';
 
-  const effectiveInStock = hasVariants
-    ? selectedVariant !== null && selectedVariant.stock_quantity > 0
-    : (product?.inStock ?? false);
+  const effectiveInStock = product?.isFood
+    ? !product.soldOut
+    : hasVariants
+      ? (product?.inStock ?? false) &&
+        selectedVariant !== null &&
+        selectedVariant.stock_quantity > 0
+      : (product?.inStock ?? false);
 
   const effectiveSku = selectedVariant?.sku || product?.sku;
 
-  const effectiveStockQty = hasVariants
-    ? (selectedVariant?.stock_quantity ?? 0)
-    : product?.stockQuantity != null
-      ? product.stockQuantity
-      : product?.inStock
-        ? 99
-        : 0;
+  // Food products have no numeric stock; availability is Sold-Out-only. Treat
+  // their stock as effectively unlimited so the quantity control never blocks.
+  const effectiveStockQty = product?.isFood
+    ? Infinity
+    : hasVariants
+      ? (selectedVariant?.stock_quantity ?? 0)
+      : product?.stockQuantity != null
+        ? product.stockQuantity
+        : product?.inStock
+          ? 99
+          : 0;
 
   const maxQty = effectiveStockQty > 0 ? effectiveStockQty : 1;
 
@@ -667,7 +718,15 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
         brand: data.brand || '',
 
-        inStock: Boolean(data.in_stock),
+        inStock: Boolean(data.in_stock) && data.sold_out !== true,
+
+        soldOut: data.sold_out === true,
+
+        foodCategoryId: data.food_category_id != null ? String(data.food_category_id) : null,
+
+        isFood: data.food_category_id != null && data.food_category_id !== '',
+
+        reviewsEnabled: data.reviews_enabled !== false,
 
         description: data.description ?? undefined,
 
@@ -804,38 +863,54 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data: firstData, error } = await supabase
         .from('products')
         .select(
-          'id,name,price,original_price,image,alt,category,rating,reviews,discount,badge,variant,brand,in_stock'
+          'id,name,price,original_price,image,alt,category,rating,reviews,discount,badge,variant,brand,in_stock,sold_out,card_image_fit,card_image_scale,card_image_position_x,card_image_position_y'
         )
         .neq('id', product.id)
         .eq('active', true)
         .limit(24);
 
+      let productRows = (firstData as Array<Record<string, unknown>> | null) ?? [];
+
+      if (error) {
+        // sold_out AND card_image_* are added by migrations that may not be
+        // applied to the live database yet; retry with the legacy column list
+        // instead of failing.
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('products')
+          .select(
+            'id,name,price,original_price,image,alt,category,rating,reviews,discount,badge,variant,brand,in_stock'
+          )
+          .neq('id', product.id)
+          .eq('active', true)
+          .limit(24);
+        if (fallbackError) {
+          setAllProducts([]);
+          return;
+        }
+        productRows = (fallbackData as Array<Record<string, unknown>> | null) ?? [];
+      }
+
       if (cancelled) {
         return;
       }
 
-      if (error || !data) {
-        setAllProducts([]);
-        return;
-      }
+      const mapped: Product[] = productRows.map((row) => ({
+        id: String(row?.id),
 
-      const mapped: Product[] = data.map((row) => ({
-        id: String(row.id),
-
-        name: row.name || 'Product',
+        name: row.name ? String(row.name) : 'Product',
 
         price: Number(row.price) || 0,
 
         originalPrice: row.original_price != null ? Number(row.original_price) : undefined,
 
-        image: row.image || '',
+        image: row.image ? String(row.image) : '',
 
-        alt: row.alt || row.name || 'Product image',
+        alt: row.alt ? String(row.alt) : row.name ? String(row.name) : 'Product image',
 
-        category: row.category || '',
+        category: row.category ? String(row.category) : '',
 
         rating: Number(row.rating) || 0,
 
@@ -843,13 +918,35 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
         discount: row.discount != null ? Number(row.discount) : undefined,
 
-        badge: row.badge ?? undefined,
+        badge: row.badge != null ? String(row.badge) : undefined,
 
-        variant: row.variant ?? undefined,
+        variant: row.variant != null ? String(row.variant) : undefined,
 
-        brand: row.brand || '',
+        brand: row.brand ? String(row.brand) : '',
 
-        inStock: Boolean(row.in_stock),
+        inStock: Boolean(row.in_stock) && row.sold_out !== true,
+
+        soldOut: row.sold_out === true,
+
+        cardImageFit:
+          row.card_image_fit === 'cover' || row.card_image_fit === 'contain'
+            ? row.card_image_fit
+            : undefined,
+
+        cardImageScale:
+          row.card_image_scale != null && Number.isFinite(Number(row.card_image_scale))
+            ? Number(row.card_image_scale)
+            : undefined,
+
+        cardImageX:
+          row.card_image_position_x != null && Number.isFinite(Number(row.card_image_position_x))
+            ? Number(row.card_image_position_x)
+            : undefined,
+
+        cardImageY:
+          row.card_image_position_y != null && Number.isFinite(Number(row.card_image_position_y))
+            ? Number(row.card_image_position_y)
+            : undefined,
       }));
 
       setAllProducts(mapped);
@@ -904,6 +1001,12 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       return;
     }
 
+    // Food products NEVER go into the normal product cart — they use the
+    // dedicated Food cart and Food checkout.
+    if (product.isFood) {
+      return;
+    }
+
     if (hasVariants && !selectedVariant) {
       return;
     }
@@ -937,6 +1040,8 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
       inStock: effectiveInStock,
 
+      isFood: product.isFood,
+
       description: product.description,
 
       sku: effectiveSku,
@@ -966,6 +1071,12 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       return;
     }
 
+    // Food products go through the dedicated Food checkout (buyFoodNow).
+    if (product?.isFood) {
+      buyFoodNow();
+      return;
+    }
+
     if (hasVariants && !selectedVariant) {
       return;
     }
@@ -978,6 +1089,49 @@ export default function ProductDetailsClient({ id }: { id: string }) {
       params.set('variant', selectedVariant.id);
     }
     router.push(`/checkout?${params.toString()}`);
+  };
+
+  // Food-only counterparts: add to the SEPARATE Food cart / Buy Now through the
+  // SEPARATE /food-checkout flow. Kept distinct from the normal cart actions so
+  // a Food product can never leak into the regular marketplace order flow.
+  const addFoodWithQty = () => {
+    if (!product) {
+      return;
+    }
+    if (hasVariants && !selectedVariant) {
+      return;
+    }
+    addFood(
+      {
+        id: product.id,
+        name: product.name,
+        price: effectivePrice,
+        originalPrice: effectiveOriginalPrice,
+        image: effectiveImage,
+      },
+      qty
+    );
+    // The dedicated Food checkout doubles as the Food cart — jump straight
+    // there so the customer can review and place their food order.
+    router.push('/food-checkout');
+  };
+
+  const buyFoodNow = () => {
+    if (!effectiveInStock) {
+      return;
+    }
+    if (hasVariants && !selectedVariant) {
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('buyNow', '1');
+    params.set('product', product.id);
+    params.set('qty', String(qty));
+    if (selectedVariant) {
+      params.set('variant', selectedVariant.id);
+    }
+    router.push(`/food-checkout?${params.toString()}`);
   };
 
   /* =========================================================
@@ -1072,10 +1226,13 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     );
   }
 
-  const showRating = product.rating > 0 && product.reviews > 0;
+  const showRating = product.reviewsEnabled && product.rating > 0 && product.reviews > 0;
 
-  const lowStock =
-    hasVariants && selectedVariant ? selectedVariant.stock_quantity : product.stockQuantity;
+  const lowStock = product?.isFood
+    ? undefined
+    : hasVariants && selectedVariant
+      ? selectedVariant.stock_quantity
+      : product?.stockQuantity;
 
   /* =========================================================
      RENDER
@@ -1418,7 +1575,9 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                     ? lowStock != null && lowStock > 0 && lowStock <= 5
                       ? `Only ${lowStock} left in stock`
                       : 'In stock'
-                    : 'Out of stock'}
+                    : product?.soldOut === true
+                      ? 'Sold Out'
+                      : 'Out of stock'}
                 </p>
               </div>
 
@@ -1588,25 +1747,59 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2"
                 ref={purchaseActionsRef}
               >
-                <button
-                  type="button"
-                  disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                  onClick={addToCartWithQty}
-                  className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Icon name="ShoppingCartIcon" size={16} />
-                  Add to Cart
-                </button>
+                {product?.isFood ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                      }
+                      onClick={addFoodWithQty}
+                      className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icon name="ShoppingCartIcon" size={16} />
+                      Add to Food Cart
+                    </button>
 
-                <button
-                  type="button"
-                  disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                  onClick={buyNow}
-                  className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-accent px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Icon name="BoltIcon" size={16} />
-                  Buy Now
-                </button>
+                    <button
+                      type="button"
+                      disabled={
+                        !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                      }
+                      onClick={buyFoodNow}
+                      className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-accent px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icon name="FireIcon" size={16} />
+                      Order Food
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                      }
+                      onClick={addToCartWithQty}
+                      className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icon name="ShoppingCartIcon" size={16} />
+                      Add to Cart
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                      }
+                      onClick={buyNow}
+                      className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-accent px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icon name="BoltIcon" size={16} />
+                      Buy Now
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* =============================================
@@ -1636,134 +1829,52 @@ export default function ProductDetailsClient({ id }: { id: string }) {
           </div>
 
           {/* =================================================
-              DESCRIPTION
+              DELIVERY DETAILS (real saved Delivery Location +
+              real Admin delivery copy, no fabricated dates)
              ================================================= */}
 
-          {product.description && (
-            <section className="mt-3 rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-              <h2 className="text-sm font-extrabold">Product Description</h2>
+          <DeliveryDetailsSection deliveryText={product.details?.delivery ?? null} />
 
-              <p className="mt-1.5 whitespace-pre-line text-xs leading-5 text-slate-600 sm:text-sm">
-                {product.description}
-              </p>
-            </section>
+          {/* =================================================
+              PRODUCT HIGHLIGHTS
+             ================================================= */}
+
+          <ProductHighlightsSection highlights={product.details?.highlights ?? []} />
+
+          {/* =================================================
+              ALL DETAILS (collapsed by default)
+             ================================================= */}
+
+          <AllDetailsSection
+            description={product.description}
+            brand={product.brand}
+            sku={product.sku}
+            details={product.details ?? EMPTY_DETAILS}
+          />
+
+          {/* =================================================
+              REVIEWS (hidden when the Admin disabled them —
+              the whole section unmounts, so no hidden focusable
+              form controls can ever be reached by keyboard)
+             ================================================= */}
+
+          {product.reviewsEnabled && (
+            <div id="reviews">
+              <ReviewsSection productId={id} productName={product.name} />
+            </div>
           )}
 
           {/* =================================================
-              ADMIN DETAILS
+              PROMOTIONAL BANNER (real Admin banners only)
              ================================================= */}
 
-          {product.details && hasProductDetails(product.details) && (
-            <section className="mt-3 space-y-2.5" aria-label="Product details">
-              {/* Highlights */}
-              {product.details.highlights.length > 0 && (
-                <DetailCard title="Highlights">
-                  <ul className="grid gap-1.5 sm:grid-cols-2">
-                    {product.details.highlights.map((highlight, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-2 text-xs leading-5 text-slate-700"
-                      >
-                        <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-50 text-primary">
-                          <Icon name="CheckIcon" size={10} />
-                        </span>
-
-                        <span>{highlight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </DetailCard>
-              )}
-
-              {/* Specs */}
-              {product.details.specifications.length > 0 && (
-                <DetailCard title="Specifications">
-                  <div className="space-y-3">
-                    {product.details.specifications.map((group, groupIndex) => (
-                      <div key={groupIndex}>
-                        {group.group && (
-                          <h3 className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-                            {group.group}
-                          </h3>
-                        )}
-
-                        <dl className="divide-y divide-slate-100 border-y border-slate-100">
-                          {group.items.map((item, itemIndex) => (
-                            <div
-                              key={itemIndex}
-                              className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 py-2 text-[11px] sm:text-xs"
-                            >
-                              <dt className="break-words text-slate-500">{item.key}</dt>
-
-                              <dd className="break-words font-semibold text-slate-800">
-                                {item.value}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </div>
-                    ))}
-                  </div>
-                </DetailCard>
-              )}
-
-              {/* Box */}
-              {product.details.packageContents.length > 0 && (
-                <DetailCard title="What's in the Box">
-                  <ul className="grid gap-1.5 sm:grid-cols-2">
-                    {product.details.packageContents.map((item, index) => (
-                      <li key={index} className="flex items-center gap-2 text-xs text-slate-700">
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </DetailCard>
-              )}
-
-              {/* Services */}
-              {(product.details.delivery ||
-                product.details.warranty ||
-                product.details.returns) && (
-                <DetailCard title="Services">
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {product.details.delivery && (
-                      <ServiceItem
-                        icon="TruckIcon"
-                        title="Delivery"
-                        text={product.details.delivery}
-                      />
-                    )}
-
-                    {product.details.warranty && (
-                      <ServiceItem
-                        icon="ShieldCheckIcon"
-                        title="Warranty"
-                        text={product.details.warranty}
-                      />
-                    )}
-
-                    {product.details.returns && (
-                      <ServiceItem
-                        icon="ArrowPathIcon"
-                        title="Returns"
-                        text={product.details.returns}
-                      />
-                    )}
-                  </div>
-                </DetailCard>
-              )}
-            </section>
-          )}
+          <PromoBannerSection />
 
           {/* =================================================
-              REVIEWS
+              FOOD CATEGORIES (real Admin food rows only)
              ================================================= */}
 
-          <div id="reviews">
-            <ReviewsSection productId={id} productName={product.name} />
-          </div>
+          <FoodSection />
 
           {/* =================================================
               ALL PRODUCTS
@@ -1794,6 +1905,12 @@ export default function ProductDetailsClient({ id }: { id: string }) {
               </div>
             </section>
           )}
+
+          {/* =================================================
+              MAIN SHOP BY CATEGORY
+             ================================================= */}
+
+          <CategoriesSection />
         </div>
       </main>
 
@@ -1823,24 +1940,57 @@ export default function ProductDetailsClient({ id }: { id: string }) {
               )}
             </div>
             <div className="ml-auto flex gap-2">
-              <button
-                type="button"
-                disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                onClick={addToCartWithQty}
-                className="flex h-9 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="ShoppingCartIcon" size={15} />
-                Add to Cart
-              </button>
-              <button
-                type="button"
-                disabled={!effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)}
-                onClick={buyNow}
-                className="flex h-9 items-center justify-center gap-1 rounded-lg bg-orange-500 px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="BoltIcon" size={15} />
-                Buy Now
-              </button>
+              {product?.isFood ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={
+                      !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                    }
+                    onClick={addFoodWithQty}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Icon name="ShoppingCartIcon" size={15} />
+                    Food Cart
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                    }
+                    onClick={buyFoodNow}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-orange-500 px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Icon name="FireIcon" size={15} />
+                    Order Food
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={
+                      !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                    }
+                    onClick={addToCartWithQty}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Icon name="ShoppingCartIcon" size={15} />
+                    Add to Cart
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !effectiveInStock || qty > maxQty || (hasVariants && !selectedVariant)
+                    }
+                    onClick={buyNow}
+                    className="flex h-9 items-center justify-center gap-1 rounded-lg bg-orange-500 px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Icon name="BoltIcon" size={15} />
+                    Buy Now
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1933,40 +2083,6 @@ export default function ProductDetailsClient({ id }: { id: string }) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/* =========================================================
-   SMALL REUSABLE DETAIL CARD
-   ========================================================= */
-
-function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-      <h2 className="mb-2 text-sm font-extrabold text-slate-950">{title}</h2>
-
-      {children}
-    </div>
-  );
-}
-
-/* =========================================================
-   SERVICE ITEM
-   ========================================================= */
-
-function ServiceItem({ icon, title, text }: { icon: string; title: string; text: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg bg-slate-50 p-2.5">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-primary">
-        <Icon name={icon} size={15} />
-      </span>
-
-      <div className="min-w-0">
-        <h3 className="text-[11px] font-extrabold text-slate-900">{title}</h3>
-
-        <p className="mt-0.5 break-words text-[10px] leading-4 text-slate-500">{text}</p>
-      </div>
     </div>
   );
 }

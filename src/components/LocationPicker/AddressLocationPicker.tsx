@@ -58,16 +58,46 @@ function buildPreview(addr: Record<string, string | undefined>, displayName: str
   return '';
 }
 
+/** Structured Nepal address components captured from reverse geocoding.
+ *  `landmark` is intentionally never geocoded — it is a human-only input. */
+export interface StructuredAddressInfo {
+  street: string | null;
+  locality: string | null;
+  district: string | null;
+  province: string | null;
+  ward: string | null;
+  postalCode: string | null;
+  country: string | null;
+  formattedAddress: string | null;
+}
+
 interface AddressLocationPickerProps {
   onStreetChange: (street: string) => void;
   onCityChange: (city: string) => void;
+  onLocationChange?: (location: { lat: number; lng: number } | null) => void;
+  /** Fired on every reliable reverse-geocode result with the structured
+   *  components. A field is null when the geocoder had no value for it. */
+  onStructuredAddress?: (info: StructuredAddressInfo) => void;
+  /** Coordinates already saved on this address. When editing an existing
+   *  address the map opens on the saved pin instead of starting empty, so
+   *  GPS data is never lost or hidden after a reopen/edit. */
+  initialLocation?: { lat: number; lng: number } | null;
 }
 
 export default function AddressLocationPicker({
   onStreetChange,
   onCityChange,
+  onLocationChange,
+  onStructuredAddress,
+  initialLocation,
 }: AddressLocationPickerProps) {
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Open on the saved pin when editing an existing address. A manual GPS tap or
+  // map pin move updates this, preserving the latest coordinates for save.
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    initialLocation && Number.isFinite(initialLocation.lat) && Number.isFinite(initialLocation.lng)
+      ? { lat: initialLocation.lat, lng: initialLocation.lng }
+      : null
+  );
   const [loading, setLoading] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [accuracyWarning, setAccuracyWarning] = useState('');
@@ -102,6 +132,26 @@ export default function AddressLocationPicker({
 
         setDetectedLocation(preview);
 
+        const ward =
+          (typeof addr.ward === 'string' && addr.ward.trim()) ||
+          (typeof addr.city_district === 'string' && addr.city_district.trim()) ||
+          '';
+        const structured: StructuredAddressInfo = {
+          street: addressLine || null,
+          locality: locality || null,
+          district: pickDistrict(addr) || null,
+          province: typeof addr.state === 'string' && addr.state.trim() ? addr.state.trim() : null,
+          ward: ward || null,
+          postalCode:
+            typeof addr.postcode === 'string' && addr.postcode.trim() ? addr.postcode.trim() : null,
+          country:
+            typeof addr.country === 'string' && addr.country.trim() ? addr.country.trim() : null,
+          formattedAddress:
+            typeof data.display_name === 'string' && data.display_name.trim()
+              ? data.display_name.trim()
+              : null,
+        };
+
         // Only auto-fill the customer's fields when the reading is reliable.
         // A manual pin placement is a deliberate, exact selection and may fill.
         if (!weakAccuracyRef.current) {
@@ -111,6 +161,7 @@ export default function AddressLocationPicker({
           if (locality) {
             onCityChange(locality);
           }
+          onStructuredAddress?.(structured);
         }
       } catch {
         setDetectedLocation('');
@@ -119,7 +170,7 @@ export default function AddressLocationPicker({
         );
       }
     },
-    [onStreetChange, onCityChange]
+    [onStreetChange, onCityChange, onStructuredAddress]
   );
 
   const handleMapMove = useCallback(
@@ -128,11 +179,12 @@ export default function AddressLocationPicker({
       weakAccuracyRef.current = false;
       setWeakAccuracy(false);
       setLocation(newLocation);
+      onLocationChange?.(newLocation);
       setAccuracyWarning('');
       setDetectedLocation('');
       reverseGeocode(newLocation.lat, newLocation.lng);
     },
-    [reverseGeocode]
+    [reverseGeocode, onLocationChange]
   );
 
   const useCurrentLocation = () => {
@@ -154,6 +206,7 @@ export default function AddressLocationPicker({
 
         const newLocation = { lat, lng };
         setLocation(newLocation);
+        onLocationChange?.(newLocation);
 
         const weak = accuracy > 500;
         weakAccuracyRef.current = weak;

@@ -20,13 +20,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.8,
     },
+    {
+      url: `${baseUrl}/food`,
+      lastModified: today,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
   ];
 
   let productUrls: { url: string; modified: string | null }[] = [];
   let categoryUrls: string[] = [];
+  let foodCategoryUrls: string[] = [];
 
   try {
-    const [productsRes, categoriesRes] = await Promise.all([
+    const [productsRes, categoriesRes, foodCategoriesRes] = await Promise.all([
       supabase
         .from('products')
         .select('id')
@@ -37,6 +44,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .from('categories')
         .select('name, slug')
         .eq('active', true)
+        .order('sort_order', { ascending: true }),
+      supabase
+        .from('homepage_food_categories')
+        .select('slug')
+        .eq('is_active', true)
         .order('sort_order', { ascending: true }),
     ]);
 
@@ -51,11 +63,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .filter((c) => c.name)
         .map((c) => `${baseUrl}/products?category=${encodeURIComponent(c.name)}`);
     }
+    if (!foodCategoriesRes.error && foodCategoriesRes.data) {
+      foodCategoryUrls = foodCategoriesRes.data
+        .filter((c) => c.slug)
+        .map((c) => `${baseUrl}/${c.slug}page/all${c.slug}`);
+    }
   } catch {
     // If the database query fails, fall back to core static URLs only so the
     // sitemap still resolves rather than erroring the whole route.
     productUrls = [];
     categoryUrls = [];
+    foodCategoryUrls = [];
   }
 
   for (const { url, modified } of productUrls) {
@@ -68,6 +86,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   for (const url of categoryUrls) {
+    entries.push({
+      url,
+      lastModified: today,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    });
+  }
+
+  for (const url of foodCategoryUrls) {
     entries.push({
       url,
       lastModified: today,

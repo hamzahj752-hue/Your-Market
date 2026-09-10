@@ -3,7 +3,12 @@
 // CURRENT ADMIN CANONICAL CONTRACT:
 //
 // {
-//   highlights?: string[];
+//   highlights?: [
+//     {
+//       text: string;
+//       icon?: string;
+//     }
+//   ];
 //   specifications?: [
 //     {
 //       group: string;
@@ -23,17 +28,17 @@
 //
 // BACKWARD COMPATIBILITY:
 //
-// Older Customer/Admin code used:
+// Older Admin/Customer code stored highlights as plain strings:
 //
-// specifications[].items[].key/value
+//   highlights?: string[]
 //
-// This parser accepts BOTH formats so existing products do not break.
+// and used legacy specification rows:
 //
-// All values are normalized into:
+//   specifications[].items[].key/value
 //
-// specifications[].items[].key/value
-//
-// for the Customer UI.
+// This parser accepts BOTH formats so existing products do not break. Every
+// highlight is normalized into an object with a `text` and an optional `icon`;
+// specification items are normalized into `items[].key/value` for the UI.
 //
 // Everything is rendered as plain React text.
 // No HTML is trusted or rendered.
@@ -48,8 +53,14 @@ export interface SpecGroup {
   items: SpecItem[];
 }
 
+/** One product highlight: real admin copy plus an optional predefined icon name. */
+export interface HighlightItem {
+  text: string;
+  icon: string | null;
+}
+
 export interface ProductDetails {
-  highlights: string[];
+  highlights: HighlightItem[];
   specifications: SpecGroup[];
   packageContents: string[];
   delivery: string | null;
@@ -64,6 +75,8 @@ const MAX_HIGHLIGHTS = 30;
 const MAX_PACKAGE_ITEMS = 30;
 const MAX_SPEC_GROUPS = 30;
 const MAX_SPEC_ITEMS_PER_GROUP = 60;
+
+const MAX_ICON_NAME_LENGTH = 80;
 
 function asSafeString(
   value: unknown,
@@ -100,6 +113,63 @@ function asStringArray(value: unknown, maxItems: number): string[] {
     if (text) {
       result.push(text);
     }
+  }
+
+  return result;
+}
+
+/**
+ * Parses the Admin Highlight list.
+ *
+ * Accepts BOTH formats:
+ *  - modern: { text, icon? }
+ *  - legacy: plain string (icon resolves to null)
+ *
+ * The icon is just a guarded, short token passed to the storefront Icon
+ * component; an unknown value falls back safely to the generic feature icon.
+ */
+function asHighlightItems(value: unknown): HighlightItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: HighlightItem[] = [];
+
+  for (const raw of value) {
+    if (result.length >= MAX_HIGHLIGHTS) {
+      break;
+    }
+
+    if (typeof raw === 'string') {
+      const text = asSafeString(raw, null, MAX_SHORT_TEXT_LENGTH);
+      if (text) {
+        result.push({ text, icon: null });
+      }
+      continue;
+    }
+
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      continue;
+    }
+
+    const row = raw as Record<string, unknown>;
+
+    const text = asSafeString(row.text, null, MAX_SHORT_TEXT_LENGTH);
+
+    if (!text) {
+      continue;
+    }
+
+    const rawIcon = typeof row.icon === 'string' ? row.icon.trim() : '';
+
+    const icon = rawIcon
+      ? rawIcon.slice(0, MAX_ICON_NAME_LENGTH).replace(/[^A-Za-z0-9]/g, '')
+      : null;
+
+    result.push({
+      text,
+      icon: icon || null,
+    });
   }
 
   return result;
@@ -255,7 +325,7 @@ export function parseProductDetails(value: unknown): ProductDetails {
   const raw = value as Record<string, unknown>;
 
   return {
-    highlights: asStringArray(raw.highlights, MAX_HIGHLIGHTS),
+    highlights: asHighlightItems(raw.highlights),
 
     specifications: parseSpecificationGroups(raw.specifications),
 

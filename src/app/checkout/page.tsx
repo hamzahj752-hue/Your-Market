@@ -12,6 +12,7 @@ import LocationPicker from '@/components/LocationPicker/LocationPicker';
 import NepalPhoneInput from '@/components/NepalPhoneInput';
 import { supabase } from '@/lib/supabase';
 import { isValidNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
+import { DEFAULT_SETTINGS } from '@/lib/useStoreSettings';
 
 interface Address {
   id: string;
@@ -21,6 +22,8 @@ interface Address {
   address_line: string;
   city: string;
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface PlacedOrder {
@@ -33,7 +36,10 @@ interface PlacedOrder {
   created_at: string;
 }
 
-const PAYMENT_METHODS: Array<[string, string]> = [['cod', 'Cash on Delivery']];
+const PAYMENT_METHODS: Array<[string, string]> = [
+  ['cod', 'Cash on Delivery'],
+  ['esewa', 'eSewa'],
+];
 
 const FRIENDLY_ERRORS: Array<[RegExp, string]> = [
   [/must be signed in/i, 'Please sign in before placing an order.'],
@@ -126,6 +132,11 @@ export default function CheckoutPage() {
   const [loginRequired, setLoginRequired] = useState(false);
   const [_location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const [esewaConfig, setEsewaConfig] = useState<{
+    configured: boolean;
+    environment: string;
+  } | null>(null);
+  const [esewaLoading, setEsewaLoading] = useState(true);
 
   // Per-product Cash on Delivery gating. products.cod_enabled=false items can
   // never be paid by COD — the server placeholder enforces this as well — so the
@@ -133,9 +144,10 @@ export default function CheckoutPage() {
   const [codBlockedItems, setCodBlockedItems] = useState<CartItem[]>([]);
   const [codBlockedLoading, setCodBlockedLoading] = useState(false);
 
-  const shippingCharge = settings?.shipping_charge ?? 200;
-  const freeShippingThreshold = settings?.free_shipping_threshold ?? 6500;
-  const taxPercent = settings?.tax_percent ?? 13;
+  const shippingCharge = settings?.shipping_charge ?? DEFAULT_SETTINGS.shippingCharge;
+  const freeShippingThreshold =
+    settings?.free_shipping_threshold ?? DEFAULT_SETTINGS.freeShippingThreshold;
+  const taxPercent = settings?.tax_percent ?? DEFAULT_SETTINGS.taxPercent;
 
   // The effective checkout line items come from a Buy Now intent when present,
   // otherwise from the customer's normal cart. Calculations below never mix the
@@ -149,14 +161,25 @@ export default function CheckoutPage() {
   const tax = checkoutSubtotal * (taxPercent / 100);
   const total = checkoutSubtotal + shipping + tax;
 
-  const availableMethods = PAYMENT_METHODS.filter(
-    ([id]) => id === 'cod' && (settings?.cod_enabled ?? true)
-  );
+  const availableMethods = PAYMENT_METHODS.filter(([id]) => {
+    if (id === 'cod') return settings?.cod_enabled ?? true;
+    if (id === 'esewa') return esewaConfig?.configured ?? false;
+    return false;
+  });
 
   // Buy Now intent resolution: `/checkout?buyNow=1&product=<id>&qty=<n>&variant=<id>`.
   // Re-resolves the canonical product/variant from the server so a tampered
   // client price can never reach place_order — it is discarded in favour of the
   // database price. Stock and active-variant rules are enforced the same way.
+  // Prefill the coupon box when arriving from the cart ("Continue") so the same
+  // code the customer started with is what actually gets validated. No claim of
+  // validity is made here — place_order is the only authority.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const coupon = (params.get('coupon') || '').trim().toUpperCase();
+    if (coupon) setCouponCode(coupon);
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('buyNow') !== '1') return;
@@ -225,17 +248,25 @@ export default function CheckoutPage() {
         : product.original_price != null
           ? Number(product.original_price)
           : undefined;
+      const baseSoldOut = (product as Record<string, unknown>).sold_out === true;
+      const isFoodProduct = !!(product as Record<string, unknown>).food_category_id;
       const stockQuantity = variant
         ? Number(variant.stock_quantity)
-        : product.stock_quantity != null
-          ? Number(product.stock_quantity)
-          : Number(product.in_stock ? 99 : 0);
-      const inStock = stockQuantity > 0;
+        : isFoodProduct
+          ? undefined
+          : product.stock_quantity != null
+            ? Number(product.stock_quantity)
+            : Number(product.in_stock ? 99 : 0);
+      // Food products are availability-controlled by Sold Out only; numeric
+      // stock does not apply, so the qty-vs-stock check is skipped for them.
+      const inStock = isFoodProduct ? !baseSoldOut : stockQuantity > 0 && !baseSoldOut;
 
-      if (active && (!inStock || qty > stockQuantity)) {
+      if (active && (!inStock || (!isFoodProduct && qty > stockQuantity!))) {
         setBuyNowError(
           !inStock
-            ? 'This product is currently out of stock and cannot be purchased right now.'
+            ? baseSoldOut
+              ? 'This product is currently sold out and cannot be purchased right now.'
+              : 'This product is currently out of stock and cannot be purchased right now.'
             : 'The selected quantity is not available in stock. Please reduce the quantity.'
         );
         setBuyNowLoading(false);
@@ -256,6 +287,7 @@ export default function CheckoutPage() {
         inStock,
         quantity: qty,
         stockQuantity,
+        isFood: isFoodProduct,
         variantId: variant ? String(variant.id) : undefined,
         variantSize: variant && variant.size ? String(variant.size) : undefined,
         variantColor: variant && variant.color_name ? String(variant.color_name) : undefined,
@@ -331,6 +363,27 @@ export default function CheckoutPage() {
       const { data } = await supabase.from('store_settings').select('*').limit(1).maybeSingle();
       if (!cancelled && data) {
         setSettings(data as StoreSettings);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/payment/esewa/config');
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setEsewaConfig({ configured: data.configured, environment: data.environment });
+        }
+      } catch {
+        // eSewa not available — keep configured as false
+      } finally {
+        if (!cancelled) setEsewaLoading(false);
       }
     };
     load();
@@ -433,9 +486,11 @@ export default function CheckoutPage() {
     !loadingUser &&
     !codBlockedLoading &&
     codBlockedItems.length === 0 &&
+    !esewaLoading &&
     availableMethods.length > 0 &&
     checkoutItems.length > 0 &&
-    requiredValid;
+    requiredValid &&
+    availableMethods.some(([id]) => id === method);
 
   const placeOrder = async () => {
     // Block duplicate submissions (double-tap / rapid clicks) so a single tap
@@ -463,6 +518,8 @@ export default function CheckoutPage() {
     let phoneValue = phone.trim();
     let addressLine = address.trim();
     let cityValue = city.trim();
+    let addressLat: number | null = _location ? _location.lat : null;
+    let addressLng: number | null = _location ? _location.lng : null;
     let addressError = '';
 
     if (!selectedAddressId || useNewAddress) {
@@ -480,6 +537,8 @@ export default function CheckoutPage() {
         phoneValue = selected.phone;
         addressLine = selected.address_line;
         cityValue = selected.city;
+        addressLat = selected.latitude ?? null;
+        addressLng = selected.longitude ?? null;
         if (!isValidNepalMobile(phoneValue)) {
           addressError = 'The saved delivery phone is invalid. Please use a new address.';
         }
@@ -522,6 +581,8 @@ export default function CheckoutPage() {
       phone: phoneValue,
       address_line: addressLine,
       city: cityValue,
+      latitude: addressLat,
+      longitude: addressLng,
     };
 
     const { data, error: rpcError } = await supabase.rpc('place_order', {
@@ -563,6 +624,56 @@ export default function CheckoutPage() {
     if (!buyNowItems) {
       clearCart();
     }
+
+    if (method === 'esewa') {
+      setSubmitting(false);
+      submittingRef.current = false;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const callbackUrl = `${origin}/api/payment/esewa/callback`;
+      try {
+        const res = await fetch('/api/payment/esewa/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: created.id,
+            orderNumber: created.order_number,
+            totalAmount: Number(created.total),
+            taxAmount: tax,
+            productServiceCharge: 0,
+            productDeliveryCharge: shipping,
+            successUrl: callbackUrl,
+            failureUrl: callbackUrl,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('Failed to initiate eSewa payment');
+        }
+        const esewaData = await res.json();
+        if (esewaData.formData && esewaData.formBase) {
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = `${esewaData.formBase}/api/epay/main/v2/form`;
+          form.style.display = 'none';
+          Object.entries(esewaData.formData).forEach(([key, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = String(value);
+            form.appendChild(input);
+          });
+          document.body.appendChild(form);
+          form.submit();
+          return;
+        }
+      } catch (e) {
+        console.error('eSewa redirect failed:', e);
+        setError('Payment initiation failed. Please try again or use Cash on Delivery.');
+        setSubmitting(false);
+        submittingRef.current = false;
+        return;
+      }
+    }
+
     setPlacedOrder(created);
     setSubmitting(false);
     submittingRef.current = false;
@@ -882,19 +993,25 @@ export default function CheckoutPage() {
                     >
                       {label}
                       <span className="block text-xs font-600 text-muted-foreground mt-1">
-                        Pay in cash on delivery
+                        {id === 'cod'
+                          ? 'Pay in cash on delivery'
+                          : id === 'esewa'
+                            ? 'Pay online with eSewa'
+                            : ''}
                       </span>
                     </button>
                   ))}
 
-                  {settings?.online_payment_enabled && (
-                    <div className="p-3 rounded-lg border border-dashed border-border text-left font-700 opacity-70">
-                      Online Payment
-                      <span className="block text-xs font-600 text-muted-foreground mt-1">
-                        Coming soon
-                      </span>
-                    </div>
-                  )}
+                  {!esewaLoading &&
+                    !esewaConfig?.configured &&
+                    settings?.online_payment_enabled && (
+                      <div className="p-3 rounded-lg border border-dashed border-border text-left font-700 opacity-70">
+                        Online Payment
+                        <span className="block text-xs font-600 text-muted-foreground mt-1">
+                          Coming soon
+                        </span>
+                      </div>
+                    )}
                 </div>
 
                 {codBlockedItems.length > 0 && (
@@ -989,7 +1106,8 @@ export default function CheckoutPage() {
                   className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Coupon is validated when you place your order.
+                  Coupon is validated when you place your order. Any discount is applied to the
+                  final total on your order confirmation.
                 </p>
               </div>
 

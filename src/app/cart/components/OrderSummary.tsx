@@ -2,18 +2,24 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_SETTINGS } from '@/lib/useStoreSettings';
 
 function PromoCodeRow() {
+  const router = useRouter();
   const [code, setCode] = useState('');
-  const [applied, setApplied] = useState(false);
 
+  // Coupons are only ever validated by the server at checkout (place_order).
+  // This box never claims a code was "applied" — it simply carries the code
+  // over to checkout where the real validation happens.
   const apply = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code.trim()) return;
-    setApplied(true);
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    router.push(`/checkout?coupon=${encodeURIComponent(trimmed)}`);
   };
 
   return (
@@ -26,30 +32,24 @@ function PromoCodeRow() {
           <input
             type="text"
             value={code}
-            onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
-              setApplied(false);
-            }}
-            placeholder={applied ? 'Promo code applied' : 'Enter promo code'}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="Enter promo code"
             aria-label="Promo code"
             className="w-full h-10 pl-8 pr-3 rounded-full border border-border bg-white text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 disabled:opacity-60"
-            disabled={applied}
           />
         </div>
         <button
           type="submit"
-          disabled={applied || !code.trim()}
+          disabled={!code.trim()}
           className="flex-shrink-0 h-10 px-4 rounded-full bg-foreground text-background text-sm font-700 disabled:opacity-50 transition-opacity"
         >
-          Apply
+          Continue
         </button>
       </div>
-      {applied && (
-        <p className="mt-1.5 text-xs font-700 text-green-600 flex items-center gap-1">
-          <Icon name="CheckBadgeIcon" size={14} />
-          Code {code} applied
-        </p>
-      )}
+      <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
+        <Icon name="ShieldCheckIcon" size={13} />
+        Coupons are validated at checkout, when your order is placed.
+      </p>
     </form>
   );
 }
@@ -84,9 +84,10 @@ export default function OrderSummary() {
     };
   }, []);
 
-  const shippingCharge = settings?.shipping_charge ?? 200;
-  const freeShippingThreshold = settings?.free_shipping_threshold ?? 6500;
-  const taxPercent = settings?.tax_percent ?? 13;
+  const shippingCharge = settings?.shipping_charge ?? DEFAULT_SETTINGS.shippingCharge;
+  const freeShippingThreshold =
+    settings?.free_shipping_threshold ?? DEFAULT_SETTINGS.freeShippingThreshold;
+  const taxPercent = settings?.tax_percent ?? DEFAULT_SETTINGS.taxPercent;
 
   const shipping = subtotal >= freeShippingThreshold ? 0 : shippingCharge;
   const tax = subtotal * (taxPercent / 100);

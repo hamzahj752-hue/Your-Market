@@ -681,7 +681,7 @@ export default function SubmissionsPage() {
                         <p className="text-xs text-muted-foreground mt-0.5">{sub.category}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{sub.condition}</p>
                         <p className="text-xs font-700 text-foreground mt-1">
-                          Rs. {Number(sub.expected_price).toLocaleString()}
+                          रू {Number(sub.expected_price).toLocaleString('en-IN')}
                           {sub.quantity > 1 && ` × ${sub.quantity}`}
                         </p>
                       </div>

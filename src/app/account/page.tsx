@@ -9,7 +9,9 @@ import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import PasswordlessAuth from '@/components/auth/PasswordlessAuth';
-import AddressLocationPicker from '@/components/LocationPicker/AddressLocationPicker';
+import AddressLocationPicker, {
+  type StructuredAddressInfo,
+} from '@/components/LocationPicker/AddressLocationPicker';
 import NepalPhoneInput from '@/components/NepalPhoneInput';
 import { normalizeNepalMobile, toCanonicalNepalMobile } from '@/lib/nepalPhone';
 
@@ -22,6 +24,15 @@ interface Address {
   address_line: string;
   city: string;
   is_default: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  district?: string | null;
+  province?: string | null;
+  ward?: string | null;
+  postal_code?: string | null;
+  landmark?: string | null;
+  formatted_address?: string | null;
+  country?: string | null;
 }
 
 function safeErrorMessage(error?: { message?: string } | null): string {
@@ -55,11 +66,23 @@ export default function AccountPage() {
     phone: '',
     address_line: '',
     city: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    district: '',
+    province: '',
+    ward: '',
+    postal_code: '',
+    landmark: '',
+    formatted_address: '',
+    country: '',
   });
   const [addressSaving, setAddressSaving] = useState(false);
   const [addressMessage, setAddressMessage] = useState('');
   const [addressError, setAddressError] = useState('');
   const [addressPhoneError, setAddressPhoneError] = useState('');
+  // structured-address columns (20260911100000_address_structured_fields) are
+  // prepared, not yet applied. They are persisted ONLY when they exist.
+  const [addressColumnsAvailable, setAddressColumnsAvailable] = useState<boolean | null>(null);
 
   const loadAddresses = async (userId: string) => {
     const { data, error } = await supabase
@@ -76,6 +99,23 @@ export default function AccountPage() {
     }
     setAddresses((data ?? []) as Address[]);
   };
+
+  // Derived from the prepared 20260911100000 migration; a missing column makes
+  // the whole select fail, so this is guarded and never blocks the page.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { error } = await supabase.from('addresses').select('district').limit(1);
+        if (!cancelled) setAddressColumnsAvailable(!error);
+      } catch {
+        if (!cancelled) setAddressColumnsAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -228,10 +268,34 @@ export default function AccountPage() {
         phone: address.phone.replace(/^\+?977/, ''),
         address_line: address.address_line,
         city: address.city,
+        latitude: address.latitude ?? null,
+        longitude: address.longitude ?? null,
+        district: address.district || '',
+        province: address.province || '',
+        ward: address.ward || '',
+        postal_code: address.postal_code || '',
+        landmark: address.landmark || '',
+        formatted_address: address.formatted_address || '',
+        country: address.country || '',
       });
     } else {
       setEditingAddress(null);
-      setAddressForm({ label: '', recipient_name: '', phone: '', address_line: '', city: '' });
+      setAddressForm({
+        label: '',
+        recipient_name: '',
+        phone: '',
+        address_line: '',
+        city: '',
+        latitude: null,
+        longitude: null,
+        district: '',
+        province: '',
+        ward: '',
+        postal_code: '',
+        landmark: '',
+        formatted_address: '',
+        country: '',
+      });
     }
     setAddressMessage('');
     setAddressError('');
@@ -255,13 +319,31 @@ export default function AccountPage() {
 
     const phoneCanonical = toCanonicalNepalMobile(addressForm.phone);
 
-    const formData = {
+    const baseFormData = {
       label: addressForm.label.trim() || null,
       recipient_name: addressForm.recipient_name.trim(),
       phone: phoneCanonical || addressForm.phone.trim(),
       address_line: addressForm.address_line.trim(),
       city: addressForm.city.trim(),
+      latitude: addressForm.latitude,
+      longitude: addressForm.longitude,
     };
+
+    // The structured Nepal columns are persisted ONLY when they exist in the
+    // database (20260911100000 prepared, not applied). Until then the base
+    // address continues to save exactly as before — nothing is lost.
+    const formData = addressColumnsAvailable
+      ? {
+          ...baseFormData,
+          district: addressForm.district.trim() || null,
+          province: addressForm.province.trim() || null,
+          ward: addressForm.ward.trim() || null,
+          postal_code: addressForm.postal_code.trim() || null,
+          landmark: addressForm.landmark.trim() || null,
+          formatted_address: addressForm.formatted_address.trim() || null,
+          country: addressForm.country.trim() || null,
+        }
+      : baseFormData;
 
     if (!formData.recipient_name || !formData.phone || !formData.address_line || !formData.city) {
       setAddressError('Please fill in all required address fields.');
@@ -492,7 +574,23 @@ export default function AccountPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-700">My Orders</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  View your orders and order status.
+                  View your product orders and order status.
+                </p>
+              </div>
+              <Icon name="ChevronRightIcon" size={16} className="text-primary shrink-0" />
+            </Link>
+
+            <Link
+              href="/account/food-orders"
+              className="bg-white rounded-lg border border-border/50 p-3 flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                <Icon name="FireIcon" size={18} className="text-orange-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-700">Food Orders</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Track your food orders from order to delivery.
                 </p>
               </div>
               <Icon name="ChevronRightIcon" size={16} className="text-primary shrink-0" />
@@ -626,6 +724,20 @@ export default function AccountPage() {
                       <p className="font-700 text-sm">{addr.recipient_name}</p>
                       <p className="text-sm text-muted-foreground">{addr.address_line}</p>
                       <p className="text-sm text-muted-foreground">{addr.city}</p>
+                      {(addr.district ||
+                        addr.province ||
+                        addr.ward ||
+                        addr.postal_code ||
+                        addr.country) && (
+                        <p className="text-sm text-muted-foreground">
+                          {[addr.district, addr.province, addr.ward, addr.postal_code, addr.country]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </p>
+                      )}
+                      {addr.landmark && (
+                        <p className="text-sm text-muted-foreground">Near {addr.landmark}</p>
+                      )}
                       <p className="text-sm text-muted-foreground">{addr.phone}</p>
                       {!addr.is_default && (
                         <button
@@ -895,16 +1007,145 @@ export default function AccountPage() {
                 />
               </div>
 
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="addr-district"
+                    className="block text-xs text-muted-foreground mb-1"
+                  >
+                    District <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-district"
+                    type="text"
+                    value={addressForm.district}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, district: e.target.value }))}
+                    placeholder="Kathmandu"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="addr-province"
+                    className="block text-xs text-muted-foreground mb-1"
+                  >
+                    Province <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-province"
+                    type="text"
+                    value={addressForm.province}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, province: e.target.value }))}
+                    placeholder="Bagmati Province"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="addr-ward" className="block text-xs text-muted-foreground mb-1">
+                    Ward <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-ward"
+                    type="text"
+                    value={addressForm.ward}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, ward: e.target.value }))}
+                    placeholder="Ward 8"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="addr-postal" className="block text-xs text-muted-foreground mb-1">
+                    Postal code <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-postal"
+                    type="text"
+                    value={addressForm.postal_code}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, postal_code: e.target.value }))}
+                    placeholder="44600"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="addr-landmark"
+                    className="block text-xs text-muted-foreground mb-1"
+                  >
+                    Landmark <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-landmark"
+                    type="text"
+                    value={addressForm.landmark}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, landmark: e.target.value }))}
+                    placeholder="Near a well-known place"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="addr-country"
+                    className="block text-xs text-muted-foreground mb-1"
+                  >
+                    Country <span className="opacity-60">optional</span>
+                  </label>
+                  <input
+                    id="addr-country"
+                    type="text"
+                    value={addressForm.country}
+                    onChange={(e) => setAddressForm((f) => ({ ...f, country: e.target.value }))}
+                    placeholder="Nepal"
+                    className="w-full rounded-xl border border-border bg-background px-4 outline-none focus:ring-2 focus:ring-primary/20 h-10"
+                  />
+                </div>
+              </div>
+
               <div className="pt-1">
                 <p className="text-xs text-muted-foreground mb-2">
                   Your location is only used to help fill your delivery address.
                 </p>
                 <AddressLocationPicker
+                  key={editingAddress ? editingAddress.id : 'new'}
+                  initialLocation={
+                    addressForm.latitude != null && addressForm.longitude != null
+                      ? { lat: addressForm.latitude, lng: addressForm.longitude }
+                      : null
+                  }
                   onStreetChange={(street) =>
                     setAddressForm((f) => ({ ...f, address_line: street }))
                   }
                   onCityChange={(city) => setAddressForm((f) => ({ ...f, city }))}
+                  onLocationChange={(loc) =>
+                    setAddressForm((f) => ({
+                      ...f,
+                      latitude: loc ? loc.lat : null,
+                      longitude: loc ? loc.lng : null,
+                    }))
+                  }
+                  onStructuredAddress={(info) =>
+                    setAddressForm((f) => ({
+                      ...f,
+                      district: info.district || f.district,
+                      province: info.province || f.province,
+                      ward: info.ward || f.ward,
+                      postal_code: info.postalCode || f.postal_code,
+                      country: info.country || f.country,
+                      formatted_address: info.formattedAddress || f.formatted_address,
+                    }))
+                  }
                 />
+                {addressForm.latitude != null && addressForm.longitude != null && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Saved map point: {addressForm.latitude.toFixed(5)},{' '}
+                    {addressForm.longitude.toFixed(5)}
+                  </p>
+                )}
+                {addressColumnsAvailable === false && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    District, province, ward and postal code are captured with your location and
+                    will be saved once the structured-address database update is applied.
+                  </p>
+                )}
               </div>
 
               {addressError && <p className="text-sm text-red-500 font-600">{addressError}</p>}

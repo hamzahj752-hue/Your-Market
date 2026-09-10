@@ -92,6 +92,10 @@ export default function ReviewsSection({ productId, productName }: Props) {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Compact "Write a Review" action — the form stays hidden until tapped and
+  // is never mounted (no hidden focusable controls) while collapsed.
+  const [reviewOpen, setReviewOpen] = useState(false);
+
   /* ─── Computed ─────────────────────────────────────────────────────────── */
 
   const approvedReviews = reviews.filter((r) => r.moderation_status === 'approved');
@@ -562,47 +566,41 @@ export default function ReviewsSection({ productId, productName }: Props) {
   /* ─── Render ───────────────────────────────────────────────────────────── */
 
   return (
-    <section className="mt-10">
-      <div className="bg-card rounded-3xl card-shadow p-5 md:p-8">
+    <section className="mt-3">
+      <div className="bg-card rounded-2xl card-shadow p-3 sm:p-4">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-2xl font-800">Ratings &amp; Reviews</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {approvedReviews.length} {approvedReviews.length === 1 ? 'review' : 'reviews'} for{' '}
-              {productName}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-base font-800">Ratings &amp; Reviews</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {approvedReviews.length} {approvedReviews.length === 1 ? 'review' : 'reviews'}
             </p>
           </div>
           {avgRating && (
-            <div className="flex items-center gap-2">
-              <StarDisplay rating={Number(avgRating)} size={20} />
-              <b className="text-lg">{avgRating}</b>
-              <span className="text-muted-foreground text-sm">average</span>
+            <div className="flex items-center gap-1.5">
+              <StarDisplay rating={Number(avgRating)} size={15} />
+              <b className="text-base">{avgRating}</b>
+              <span className="text-muted-foreground text-xs">average</span>
             </div>
           )}
         </div>
 
         {/* Error */}
         {reviewsError && (
-          <div className="flex items-start gap-3 p-4 rounded-2xl border border-red-200 bg-red-50 text-red-600 text-sm font-600 mb-5">
+          <div className="flex items-start gap-3 p-3 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-600 mt-3">
             <Icon name="ExclamationTriangleIcon" size={18} />
             <span>{reviewsError}</span>
           </div>
         )}
 
         {reviewsLoading ? (
-          <div className="py-10 text-center text-muted-foreground text-sm">Loading reviews...</div>
+          <div className="py-4 text-center text-muted-foreground text-sm">Loading reviews...</div>
         ) : approvedReviews.length === 0 ? (
-          /* ── Empty State ── */
-          <div className="py-10 text-center border border-dashed border-border rounded-2xl">
-            <Icon
-              name="ChatBubbleLeftRightIcon"
-              size={40}
-              className="mx-auto mb-3 text-muted-foreground/40"
-            />
-            <h3 className="font-800 text-lg mb-1">No reviews yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Be the first to share your experience with this product.
+          /* ── Compact empty state ── */
+          <div className="mt-3">
+            <p className="text-sm font-800">No reviews yet</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Be the first to share your experience with {productName}.
             </p>
           </div>
         ) : (
@@ -884,182 +882,200 @@ export default function ReviewsSection({ productId, productName }: Props) {
           </div>
         )}
 
-        {/* ── Write a Review ── */}
-        <div className="mt-8 border-t border-border pt-8">
-          <h3 className="text-lg font-800 mb-4">Write a Review</h3>
+        {/* ── Write a Review (compact — the form stays hidden until tapped) ── */}
+        <div className="mt-4 border-t border-border pt-2.5">
+          <button
+            type="button"
+            onClick={() => setReviewOpen((v) => !v)}
+            aria-expanded={reviewOpen}
+            className="flex w-full items-center justify-between gap-2 rounded-xl px-1 py-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <span className="flex items-center gap-2">
+              <Icon name="PencilSquareIcon" size={16} className="text-primary" />
+              <span className="text-sm font-800">Write a Review</span>
+            </span>
+            <span className="flex items-center gap-0.5 text-xs font-700 text-primary">
+              {reviewOpen ? 'Close' : 'Start'}
+              <Icon name={reviewOpen ? 'ChevronUpIcon' : 'ChevronDownIcon'} size={14} />
+            </span>
+          </button>
 
-          {authChecking ? (
-            <p className="text-sm text-muted-foreground">Checking your account...</p>
-          ) : !currentUser ? (
-            /* ── Guest ── */
-            <div className="p-5 rounded-2xl bg-muted/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Icon name="LockClosedIcon" size={22} className="text-muted-foreground" />
-                <div>
-                  <p className="font-700 text-sm">Sign in to write a review</p>
-                  <p className="text-xs text-muted-foreground">
-                    Only verified shoppers can submit reviews.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push('/account')}
-                className="btn-primary whitespace-nowrap"
-              >
-                Sign In
-              </button>
-            </div>
-          ) : userReview ? (
-            /* ── Already reviewed ── */
-            <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20">
-              <div className="flex items-center gap-3">
-                <Icon name="CheckCircleIcon" size={22} className="text-primary" />
-                <div>
-                  <p className="font-700 text-sm">You&apos;ve already reviewed this product</p>
-                  <p className="text-xs text-muted-foreground">
-                    You can edit or delete your existing review above.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : !eligibilityChecked ? (
-            <p className="text-sm text-muted-foreground">Checking purchase eligibility...</p>
-          ) : hasPurchased === false ? (
-            /* ── Not a purchaser ── */
-            <div className="p-5 rounded-2xl bg-muted/60 flex items-center gap-3">
-              <Icon name="InformationCircleIcon" size={22} className="text-muted-foreground" />
-              <div>
-                <p className="font-700 text-sm">Purchase required</p>
-                <p className="text-xs text-muted-foreground">
-                  Only customers who purchased this product can review it.
-                </p>
-              </div>
-            </div>
-          ) : (
-            /* ── Review Form ── */
-            <form onSubmit={handleSubmitReview} className="max-w-2xl space-y-4">
-              {reviewSuccess && (
-                <div className="flex items-start gap-3 p-4 rounded-2xl border border-green-200 bg-green-50 text-green-700 text-sm font-600">
-                  <Icon name="CheckCircleIcon" size={18} />
-                  <span>{reviewSuccess}</span>
-                </div>
-              )}
-              {reviewFormError && (
-                <div className="flex items-start gap-3 p-4 rounded-2xl border border-red-200 bg-red-50 text-red-600 text-sm font-600">
-                  <Icon name="ExclamationTriangleIcon" size={18} />
-                  <span>{reviewFormError}</span>
-                </div>
-              )}
-
-              {/* Star Rating */}
-              <div>
-                <label className="block text-sm font-700 mb-2">
-                  Your Rating <span className="text-accent">*</span>
-                </label>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      aria-label={`${star} star${star > 1 ? 's' : ''}`}
-                      onClick={() => setReviewRating(star)}
-                      className="p-1 focus:outline-none"
-                    >
-                      <StarSvg filled={star <= reviewRating} size={26} />
-                    </button>
-                  ))}
-                </div>
-                {reviewRating > 0 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][reviewRating]}
-                  </p>
-                )}
-              </div>
-
-              {/* Title */}
-              <input
-                type="text"
-                value={reviewTitle}
-                onChange={(e) => setReviewTitle(e.target.value)}
-                placeholder="Review title (optional)"
-                maxLength={120}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              {/* Content */}
-              <textarea
-                required
-                value={reviewContent}
-                onChange={(e) => setReviewContent(e.target.value)}
-                placeholder="Share your experience with this product..."
-                rows={4}
-                maxLength={1000}
-                className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-              />
-
-              {/* Photo Upload */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={pendingPhotos.length >= MAX_PHOTOS}
-                  className="inline-flex items-center gap-1.5 text-sm font-600 text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Icon name="CameraIcon" size={16} />
-                  {pendingPhotos.length === 0
-                    ? `Add Photos (optional, max ${MAX_PHOTOS})`
-                    : `${pendingPhotos.length}/${MAX_PHOTOS} photos`}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={handlePhotoSelect}
-                  className="hidden"
-                />
-                {pendingPhotos.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {pendingPhotos.map((f, idx) => (
-                      <div
-                        key={idx}
-                        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-border"
-                      >
-                        <img
-                          src={URL.createObjectURL(f)}
-                          alt={`Upload ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removePendingPhoto(idx)}
-                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
-                          aria-label="Remove photo"
-                        >
-                          <Icon name="XMarkIcon" size={12} />
-                        </button>
-                      </div>
-                    ))}
+          {reviewOpen && (
+            <div className="pt-1">
+              {authChecking ? (
+                <p className="text-sm text-muted-foreground">Checking your account...</p>
+              ) : !currentUser ? (
+                /* ── Guest ── */
+                <div className="p-4 rounded-2xl bg-muted/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Icon name="LockClosedIcon" size={20} className="text-muted-foreground" />
+                    <div>
+                      <p className="font-700 text-sm">Sign in to write a review</p>
+                      <p className="text-xs text-muted-foreground">
+                        Only verified shoppers can submit reviews.
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/account')}
+                    className="btn-primary whitespace-nowrap"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              ) : userReview ? (
+                /* ── Already reviewed ── */
+                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-3">
+                    <Icon name="CheckCircleIcon" size={20} className="text-primary" />
+                    <div>
+                      <p className="font-700 text-sm">You&apos;ve already reviewed this product</p>
+                      <p className="text-xs text-muted-foreground">
+                        You can edit or delete your existing review above.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : !eligibilityChecked ? (
+                <p className="text-sm text-muted-foreground">Checking purchase eligibility...</p>
+              ) : hasPurchased === false ? (
+                /* ── Not a purchaser ── */
+                <div className="p-4 rounded-2xl bg-muted/60 flex items-center gap-3">
+                  <Icon name="InformationCircleIcon" size={20} className="text-muted-foreground" />
+                  <div>
+                    <p className="font-700 text-sm">Purchase required</p>
+                    <p className="text-xs text-muted-foreground">
+                      Only customers who purchased this product can review it.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* ── Review Form ── */
+                <form onSubmit={handleSubmitReview} className="max-w-2xl space-y-4">
+                  {reviewSuccess && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl border border-green-200 bg-green-50 text-green-700 text-sm font-600">
+                      <Icon name="CheckCircleIcon" size={18} />
+                      <span>{reviewSuccess}</span>
+                    </div>
+                  )}
+                  {reviewFormError && (
+                    <div className="flex items-start gap-3 p-4 rounded-2xl border border-red-200 bg-red-50 text-red-600 text-sm font-600">
+                      <Icon name="ExclamationTriangleIcon" size={18} />
+                      <span>{reviewFormError}</span>
+                    </div>
+                  )}
 
-              {/* Submit */}
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {reviewContent.length}/1000 characters
-                </p>
-                <button
-                  type="submit"
-                  disabled={reviewSubmitting}
-                  className="btn-primary px-6 py-3 disabled:opacity-50"
-                >
-                  {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
-                  {!reviewSubmitting && <Icon name="PaperAirplaneIcon" size={16} />}
-                </button>
-              </div>
-            </form>
+                  {/* Star Rating */}
+                  <div>
+                    <label className="block text-sm font-700 mb-2">
+                      Your Rating <span className="text-accent">*</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          aria-label={`${star} star${star > 1 ? 's' : ''}`}
+                          onClick={() => setReviewRating(star)}
+                          className="p-1 focus:outline-none"
+                        >
+                          <StarSvg filled={star <= reviewRating} size={26} />
+                        </button>
+                      ))}
+                    </div>
+                    {reviewRating > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][reviewRating]}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Title */}
+                  <input
+                    type="text"
+                    value={reviewTitle}
+                    onChange={(e) => setReviewTitle(e.target.value)}
+                    placeholder="Review title (optional)"
+                    maxLength={120}
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+
+                  {/* Content */}
+                  <textarea
+                    required
+                    value={reviewContent}
+                    onChange={(e) => setReviewContent(e.target.value)}
+                    placeholder="Share your experience with this product..."
+                    rows={4}
+                    maxLength={1000}
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                  />
+
+                  {/* Photo Upload */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={pendingPhotos.length >= MAX_PHOTOS}
+                      className="inline-flex items-center gap-1.5 text-sm font-600 text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Icon name="CameraIcon" size={16} />
+                      {pendingPhotos.length === 0
+                        ? `Add Photos (optional, max ${MAX_PHOTOS})`
+                        : `${pendingPhotos.length}/${MAX_PHOTOS} photos`}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={handlePhotoSelect}
+                      className="hidden"
+                    />
+                    {pendingPhotos.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {pendingPhotos.map((f, idx) => (
+                          <div
+                            key={idx}
+                            className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-border"
+                          >
+                            <img
+                              src={URL.createObjectURL(f)}
+                              alt={`Upload ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removePendingPhoto(idx)}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                              aria-label="Remove photo"
+                            >
+                              <Icon name="XMarkIcon" size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      {reviewContent.length}/1000 characters
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={reviewSubmitting}
+                      className="btn-primary px-6 py-3 disabled:opacity-50"
+                    >
+                      {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                      {!reviewSubmitting && <Icon name="PaperAirplaneIcon" size={16} />}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           )}
         </div>
       </div>

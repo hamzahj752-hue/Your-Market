@@ -70,7 +70,9 @@ export default function CartItemRow({ item }: { item: CartItemType }) {
             </span>
             <button
               onClick={() => updateQuantity(key, item.quantity + 1)}
-              disabled={item.stockQuantity != null && item.quantity >= item.stockQuantity}
+              disabled={
+                !item.isFood && item.stockQuantity != null && item.quantity >= item.stockQuantity
+              }
               className="w-7 h-7 rounded-full border border-border bg-white flex items-center justify-center text-sm font-700 hover:border-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Increase quantity"
             >

@@ -6,6 +6,7 @@ import HeroSection from '@/components/HeroSection';
 import PromoBannerSection from '@/components/PromoBannerSection';
 import SendProductBanner from '@/components/SendProductBanner';
 import CategoriesSection from '@/components/CategoriesSection';
+import FoodSection from '@/components/FoodSection';
 import DealsSection from '@/components/DealsSection';
 import FeaturedProducts from '@/components/FeaturedProducts';
 import AllProductsSection from '@/components/AllProductsSection';
@@ -19,6 +20,8 @@ export default function HomePage() {
         <HeroSection />
 
         <CategoriesSection />
+
+        <FoodSection />
 
         <SendProductBanner />
 

@@ -60,7 +60,25 @@ export default function ProductsPage() {
           variant: p.variant ? String(p.variant) : undefined,
           brand: toStr(p.brand),
           sku: p.sku ? String(p.sku) : undefined,
-          inStock: Boolean(p.in_stock),
+          inStock: Boolean(p.in_stock) && p.sold_out !== true,
+          soldOut: p.sold_out === true,
+          isFood: p.food_category_id != null && p.food_category_id !== '',
+          cardImageFit:
+            p.card_image_fit === 'cover' || p.card_image_fit === 'contain'
+              ? p.card_image_fit
+              : undefined,
+          cardImageScale:
+            p.card_image_scale != null && Number.isFinite(Number(p.card_image_scale))
+              ? Number(p.card_image_scale)
+              : undefined,
+          cardImageX:
+            p.card_image_position_x != null && Number.isFinite(Number(p.card_image_position_x))
+              ? Number(p.card_image_position_x)
+              : undefined,
+          cardImageY:
+            p.card_image_position_y != null && Number.isFinite(Number(p.card_image_position_y))
+              ? Number(p.card_image_position_y)
+              : undefined,
         };
       });
 
@@ -108,7 +126,25 @@ export default function ProductsPage() {
           variant: p.variant ? String(p.variant) : undefined,
           brand: toStr(p.brand),
           sku: p.sku ? String(p.sku) : undefined,
-          inStock: Boolean(p.in_stock),
+          inStock: Boolean(p.in_stock) && p.sold_out !== true,
+          soldOut: p.sold_out === true,
+          isFood: p.food_category_id != null && p.food_category_id !== '',
+          cardImageFit:
+            p.card_image_fit === 'cover' || p.card_image_fit === 'contain'
+              ? p.card_image_fit
+              : undefined,
+          cardImageScale:
+            p.card_image_scale != null && Number.isFinite(Number(p.card_image_scale))
+              ? Number(p.card_image_scale)
+              : undefined,
+          cardImageX:
+            p.card_image_position_x != null && Number.isFinite(Number(p.card_image_position_x))
+              ? Number(p.card_image_position_x)
+              : undefined,
+          cardImageY:
+            p.card_image_position_y != null && Number.isFinite(Number(p.card_image_position_y))
+              ? Number(p.card_image_position_y)
+              : undefined,
         }));
 
         setAllProducts(mapped);

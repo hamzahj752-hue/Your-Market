@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +15,8 @@ export interface CartItem {
   variant?: string;
   quantity: number;
   stockQuantity?: number;
+  /** True for food products whose availability is Sold-Out-only (no numeric stock). */
+  isFood?: boolean;
   inStock?: boolean;
   variantId?: string;
   variantSize?: string;
@@ -171,7 +173,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             variant: p.variant ?? undefined,
             quantity: Number(row.quantity),
             stockQuantity: v ? Number(v.stock_quantity) : Number(p.stock_quantity),
-            inStock: v ? Number(v.stock_quantity) > 0 : Boolean(p.in_stock),
+            isFood: p.food_category_id != null && p.food_category_id !== '',
+            inStock:
+              p.sold_out === true ? false : v ? Number(v.stock_quantity) > 0 : Boolean(p.in_stock),
             variantId: row.variant_id || undefined,
             variantSize: v ? (v.size as string) : undefined,
             variantColor: v ? (v.color_name as string) : undefined,
@@ -269,7 +273,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       addToCart: (item: Omit<CartItem, 'quantity'>) => {
         setCartError('');
 
-        if (item.inStock === false || (item.stockQuantity != null && item.stockQuantity <= 0)) {
+        // Food products ignore numeric stock; only the inStock/Sold Out flag gates them.
+        const stockBlocked = !item.isFood && item.stockQuantity != null && item.stockQuantity <= 0;
+        if (item.inStock === false || stockBlocked) {
           setCartError(`${item.name} is currently out of stock.`);
           return;
         }
@@ -279,7 +285,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const found = prev.find((i) => cartKey(i) === key);
 
           if (found) {
-            const maxStock = item.stockQuantity != null ? item.stockQuantity : Infinity;
+            const maxStock = item.isFood ? Infinity : (item.stockQuantity ?? Infinity);
             if (found.quantity + 1 > maxStock) {
               setCartError(`Only ${maxStock} of ${item.name} available.`);
               return prev;
@@ -304,13 +310,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           prev.map((i) => {
             if (cartKey(i) !== itemKey) return i;
 
-            if (i.inStock === false || (i.stockQuantity != null && i.stockQuantity <= 0)) {
+            if (
+              i.inStock === false ||
+              (!i.isFood && i.stockQuantity != null && i.stockQuantity <= 0)
+            ) {
               setCartError(`${i.name} is currently out of stock.`);
               return i;
             }
 
             let nextQty = quantity;
-            if (i.stockQuantity != null && nextQty > i.stockQuantity) {
+            if (!i.isFood && i.stockQuantity != null && nextQty > i.stockQuantity) {
               nextQty = i.stockQuantity;
               setCartError(`Only ${i.stockQuantity} of ${i.name} available.`);
             }

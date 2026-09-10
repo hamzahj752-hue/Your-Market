@@ -41,9 +41,8 @@ export interface BannerCreativeProps {
   priority?: boolean;
   headingLevel?: 'h1' | 'h2' | 'h3';
   accessibleLabel?: string;
-  /** Optional max width class for the inner panel when the banner is a
-   *  flattened artwork (no text overlay). Keeps very wide flat banners from
-   *  growing to a huge fixed height on large screens before All Products. */
+  /** Optional max width class for the inner panel. Keeps very wide artworks
+   *  from growing to a huge fixed height on large screens. */
   flatArtMaxWidth?: string;
 }
 
@@ -70,16 +69,16 @@ export interface BannerCreativeProps {
  * optional foreground are independently overlaid layers belonging to the same
  * composition — no "50% text / 50% image" split.
  *
- * Artwork handling:
- *  - Flattened banners (no title/subtitle/CTA/foreground): the uploaded
- *    artwork IS the complete creative, so the artwork is placed in normal flow
- *    (`block w-full h-auto`). The panel then matches the artwork's own ratio on
- *    first paint — no JS-measured fallback, no letterbox flash, nothing ever
- *    cropped or zoomed.
- *  - Artwork-led banners (flattened art + Admin text/CTA pill): the same
- *    in-flow artwork sizes the panel; text/CTA overlay absolutely on top.
- *  - Text banners (title/subtitle): keep the Admin-controlled cover framing via
- *    the saved composition metadata.
+ * Artwork handling (UNIFIED COMPOSITION CONTRACT):
+ *  - The artwork is ALWAYS rendered through BannerLayer which applies the exact
+ *    same cover/contain + zoom + x/y math the Admin composition preview uses
+ *    (bannerComposition.computeLayerLayout). A banner with no title/subtitle is
+ *    still composed the same way, so what the Admin sees while composing is what
+ *    the storefront shows after save — no intrinsic-ratio shortcut that silently
+ *    ignores zoom/position/fit.
+ *  - Text (title/subtitle/CTA) overlays on top and sizes the canvas when present;
+ *    artwork-only banners still get a fixed min-height canvas so the layered
+ *    artwork has a real viewport on first paint.
  *
  * Shared by the hero carousel and the secondary promo carousel so both
  * produce the identical premium visual language from the same Admin data
@@ -103,41 +102,28 @@ export default function BannerCreative({
   // artwork is itself the complete creative (any copy is baked into the image).
   // When an Admin CTA exists it still overlays as a pill on top of the full
   // artwork; when there is no overlay at all the banner is fully flat
-  // (artwork only).
+  // (artwork only). In every case the artwork is composed with the saved
+  // fit/zoom/position contract.
   const hasMessage = Boolean(banner.title || banner.subtitle);
   const isFlatArt = !hasMessage && !banner.cta_text && !fg;
-  const isArtworkLed = !hasMessage && !isFlatArt;
-  const isIntrinsicArt = isFlatArt || isArtworkLed;
 
   const HeadingTag = headingLevel;
 
   /* ---------- artwork ---------- */
 
-  // Flattened / artwork-led banners are shown at their own intrinsic ratio via
-  // an in-flow image (exact and stable with zero JS measurement). Text banners
-  // keep the composed absolute background layer so the Admin-controlled
-  // fit/scale/position framing is authoritative.
+  // Always the layered, composed background: identical interpretation of
+  // image_fit / image_scale / image_position_x / image_position_y as the Admin
+  // composition preview.
   const artwork = banner.image_url ? (
-    isIntrinsicArt ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+    <div className="absolute inset-0">
+      <BannerLayer
         src={banner.image_url}
         alt={banner.title || 'Your Market'}
-        draggable={false}
-        loading={priority ? 'eager' : 'lazy'}
-        className="block w-full h-auto select-none"
+        priority={priority ?? isFirst}
+        composition={composition}
+        layer="image"
       />
-    ) : (
-      <div className="absolute inset-0">
-        <BannerLayer
-          src={banner.image_url}
-          alt={banner.title || 'Your Market'}
-          priority={priority ?? isFirst}
-          composition={composition}
-          layer="image"
-        />
-      </div>
-    )
+    </div>
   ) : null;
 
   /* ---------- text / CTA ---------- */
@@ -158,15 +144,19 @@ export default function BannerCreative({
   const ctaIcon = <Icon name="ArrowRightIcon" size={14} />;
 
   const textContent = (
-    <div className="relative min-h-[168px] sm:min-h-[210px] md:min-h-[260px] flex items-center">
-      <div className="px-4 sm:px-6 md:px-10 py-5 md:py-6 pr-[34%] sm:pr-[38%] md:pr-[38%] max-w-lg">
+    // Fixed (not min-) height canvas shared by every slide so message banners
+    // and artwork-only banners produce the same pixel crop, scale and position
+    // of the artwork across the whole carousel. A three-line title clamp keeps
+    // long copy readable inside the canvas instead of pushing it out.
+    <div className="relative flex h-[168px] items-center sm:h-[210px] md:h-[260px]">
+      <div className="px-4 sm:px-6 md:px-10 py-5 md:py-6 pr-[34%] sm:pr-[38%] md:pr-[38%] max-w-lg min-w-0">
         {banner.subtitle && (
-          <p className="text-white/90 text-[11px] sm:text-xs md:text-sm font-700 mb-1 sm:mb-1.5 uppercase tracking-wider">
+          <p className="line-clamp-2 text-white/90 text-[11px] sm:text-xs md:text-sm font-700 mb-1 sm:mb-1.5 uppercase tracking-wider">
             {banner.subtitle}
           </p>
         )}
         {banner.title && (
-          <HeadingTag className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-800 text-white leading-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
+          <HeadingTag className="line-clamp-3 text-xl sm:text-2xl md:text-3xl lg:text-4xl font-800 text-white leading-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
             {banner.title}
           </HeadingTag>
         )}
@@ -186,23 +176,22 @@ export default function BannerCreative({
     </div>
   );
 
-  // Over artwork-led panels (sized by the in-flow artwork) the text/CTA layer
-  // overlays absolutely; on text banners it stays in flow and sizes the panel.
-  const text = isIntrinsicArt ? <div className="absolute inset-0">{textContent}</div> : textContent;
+  // The in-flow text container sizes the canvas (fixed heights matching the
+  // Admin preview panel). On artwork-only banners it is empty but still defines
+  // the identical viewport that the layered artwork fills on first paint, so
+  // every slide in a carousel shares the same height and artwork framing.
+  const text = textContent;
 
   /* ---------- inner banner panel (rounded, clips artwork) ---------- */
 
-  // Flat/artwork-led panels tile the artwork edge-to-edge, so the corner radius
-  // stays gentler to avoid biting into full-bleed artwork. Text banners keep
-  // the larger premium radius.
-  const panelRadius = isIntrinsicArt
-    ? 'rounded-[18px] sm:rounded-[22px]'
-    : 'rounded-[26px] sm:rounded-[30px]';
+  // Text banners and artwork-only banners use the same premium radius. Flat
+  // artwork keeps the gentler radius to avoid biting into full-bleed art.
+  const panelRadius = 'rounded-[26px] sm:rounded-[30px]';
 
   const innerPanel = (
     <div
       className={`relative overflow-hidden bg-foreground ${panelRadius} ${
-        isIntrinsicArt ? 'mx-auto w-full' : ''
+        isFlatArt ? 'mx-auto w-full' : ''
       } ${flatArtMaxWidth ?? ''}`}
     >
       {artwork}
@@ -222,7 +211,7 @@ export default function BannerCreative({
           />
         </>
       )}
-      {!isFlatArt && text}
+      {text}
     </div>
   );
 

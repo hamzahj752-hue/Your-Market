@@ -20,6 +20,12 @@ export interface Product {
   brand: string;
   sku?: string;
   inStock: boolean;
+  soldOut?: boolean;
+  isFood?: boolean;
+  cardImageFit?: 'cover' | 'contain';
+  cardImageScale?: number;
+  cardImageX?: number;
+  cardImageY?: number;
 }
 
 export default function ProductGrid({

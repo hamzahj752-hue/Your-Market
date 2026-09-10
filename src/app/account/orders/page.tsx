@@ -19,6 +19,16 @@ interface Order {
   itemCount?: number;
 }
 
+interface OrderRow {
+  id: string;
+  status?: string | null;
+  order_number?: string | null;
+  created_at: string;
+  total?: number | null;
+  payment_method?: string | null;
+  payment_status?: string | null;
+}
+
 type LoadState = 'loading' | 'ready' | 'error';
 
 // Dedicated customer My Orders page. Queries ONLY the current authenticated
@@ -46,18 +56,31 @@ export default function AccountOrdersPage() {
       }
       setNotLoggedIn(false);
 
-      const { data, error } = await supabase
+      // "My Orders" shows PRODUCT orders only. Food orders live in a separate
+      // Food Orders section (/account/food-orders). The order_type column is
+      // added by a migration that may not be applied yet, so on failure we fall
+      // back to the unfiltered query (legacy pre-fork orders were all products).
+      let rows: OrderRow[] = [];
+      const { data: productRows, error: typeError } = await supabase
         .from('orders')
         .select('*')
         .eq('user_id', user.id)
+        .eq('order_type', 'product')
         .order('created_at', { ascending: false });
-
-      if (error) {
-        if (active) setLoadState('error');
-        return;
+      if (typeError) {
+        const { data: legacyRows, error: legacyError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (legacyError) {
+          if (active) setLoadState('error');
+          return;
+        }
+        rows = legacyRows ?? [];
+      } else {
+        rows = productRows ?? [];
       }
-
-      const rows = data ?? [];
       let itemCountMap: Record<string, number> = {};
 
       if (rows.length > 0) {

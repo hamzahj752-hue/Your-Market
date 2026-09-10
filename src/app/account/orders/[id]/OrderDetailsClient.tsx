@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import BottomNav from '@/components/BottomNav';
@@ -41,6 +42,7 @@ interface OrderItem {
 }
 
 export default function OrderDetailPage({ id }: { id: string }) {
+  const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,14 @@ export default function OrderDetailPage({ id }: { id: string }) {
         return;
       }
 
+      // Food orders are managed under /account/food-orders, not the product
+      // order list. A food order opened here (e.g. from a stale link) is
+      // redirected to its food-specific detail page.
+      if (orderRes.data.order_type === 'food') {
+        router.replace(`/account/food-orders/${id}`);
+        return;
+      }
+
       setOrder({
         id: orderRes.data.id,
         order_number: orderRes.data.order_number,
@@ -107,7 +117,7 @@ export default function OrderDetailPage({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, router]);
 
   const money = (v: number | undefined | null) =>
     `रू${Math.round(Number(v || 0)).toLocaleString('en-IN')}`;

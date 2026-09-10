@@ -58,11 +58,25 @@ function buildPreview(addr: Record<string, string | undefined>, displayName: str
   return '';
 }
 
+/** Structured Nepal address components captured from reverse geocoding.
+ *  `landmark` is intentionally never geocoded — it is a human-only input. */
+export interface StructuredAddressInfo {
+  street: string | null;
+  locality: string | null;
+  district: string | null;
+  province: string | null;
+  ward: string | null;
+  postalCode: string | null;
+  country: string | null;
+  formattedAddress: string | null;
+}
+
 interface LocationPickerProps {
   address: string;
   onAddressChange: (address: string) => void;
   onCityChange?: (city: string) => void;
   onLocationChange?: (location: { lat: number; lng: number }) => void;
+  onStructuredAddress?: (info: StructuredAddressInfo) => void;
 }
 
 export default function LocationPicker({
@@ -70,6 +84,7 @@ export default function LocationPicker({
   onAddressChange,
   onCityChange,
   onLocationChange,
+  onStructuredAddress,
 }: LocationPickerProps) {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,6 +120,26 @@ export default function LocationPicker({
 
         setDetectedLocation(preview);
 
+        const ward =
+          (typeof addr.ward === 'string' && addr.ward.trim()) ||
+          (typeof addr.city_district === 'string' && addr.city_district.trim()) ||
+          '';
+        const structured: StructuredAddressInfo = {
+          street: addressLine || null,
+          locality: locality || null,
+          district: pickDistrict(addr) || null,
+          province: typeof addr.state === 'string' && addr.state.trim() ? addr.state.trim() : null,
+          ward: ward || null,
+          postalCode:
+            typeof addr.postcode === 'string' && addr.postcode.trim() ? addr.postcode.trim() : null,
+          country:
+            typeof addr.country === 'string' && addr.country.trim() ? addr.country.trim() : null,
+          formattedAddress:
+            typeof data.display_name === 'string' && data.display_name.trim()
+              ? data.display_name.trim()
+              : null,
+        };
+
         // Only auto-fill customer fields from a reliable reading. A manual pin
         // placement is a deliberate exact selection and may fill.
         if (!weakAccuracyRef.current) {
@@ -116,6 +151,7 @@ export default function LocationPicker({
           if (locality) {
             onCityChange?.(locality);
           }
+          onStructuredAddress?.(structured);
         }
       } catch {
         setLocationError(
@@ -123,7 +159,7 @@ export default function LocationPicker({
         );
       }
     },
-    [onAddressChange, onCityChange]
+    [onAddressChange, onCityChange, onStructuredAddress]
   );
 
   const handleMapMove = useCallback(

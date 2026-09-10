@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google';
 import '../styles/tailwind.css';
 import { WishlistProvider } from '@/context/WishlistContext';
 import { CartProvider } from '@/context/CartContext';
+import { FoodCartProvider } from '@/context/FoodCartContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { HomeLocationProvider } from '@/context/HomeLocationContext';
 import MaintenanceGate from '@/components/MaintenanceGate';
@@ -78,11 +79,13 @@ export default function RootLayout({
       <body className={plusJakartaSans.className}>
         <AuthProvider>
           <CartProvider>
-            <WishlistProvider>
-              <HomeLocationProvider>
-                <MaintenanceGate>{children}</MaintenanceGate>
-              </HomeLocationProvider>
-            </WishlistProvider>
+            <FoodCartProvider>
+              <WishlistProvider>
+                <HomeLocationProvider>
+                  <MaintenanceGate>{children}</MaintenanceGate>
+                </HomeLocationProvider>
+              </WishlistProvider>
+            </FoodCartProvider>
           </CartProvider>
         </AuthProvider>
       </body>

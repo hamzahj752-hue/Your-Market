@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import CategoryCard from '@/components/CategoryCard';
 import { fetchHomepageCategories, BriefCategory } from '@/lib/homepageCms';
+import { fetchCategoryCardStyle, ResolvedCategoryCardStyle } from '@/lib/categoryCardStyle';
 
 const fallbackCategories: Pick<BriefCategory, 'id' | 'name' | 'image'>[] = [
   { id: 'electronics', name: 'Electronics', image: null },
@@ -25,12 +26,17 @@ const fallbackCategories: Pick<BriefCategory, 'id' | 'name' | 'image'>[] = [
  */
 export default function CategoriesSection() {
   const [catItems, setCatItems] = useState<BriefCategory[]>([]);
+  const [style, setStyle] = useState<ResolvedCategoryCardStyle | null>(null);
 
   useEffect(() => {
     let active = true;
     fetchHomepageCategories().then((cms) => {
       if (!active) return;
       if (cms.length > 0) setCatItems(cms);
+    });
+    fetchCategoryCardStyle('categories').then((resolved) => {
+      if (!active) return;
+      setStyle(resolved);
     });
     return () => {
       active = false;
@@ -40,13 +46,23 @@ export default function CategoriesSection() {
   const items: BriefCategory[] =
     catItems.length > 0 ? catItems : (fallbackCategories as BriefCategory[]);
 
+  const resolvedStyle = style ?? {
+    cardClass: 'rounded-2xl',
+    imageClass: 'rounded-lg',
+    widthClass: 'w-[92px] sm:w-[104px]',
+    gapClass: 'gap-2',
+    paddingClass: 'p-2',
+    labelClass: 'text-[11px]',
+    iconSize: 24,
+  };
+
   return (
     <section className="bg-white py-3" aria-labelledby="categories-heading">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between px-3 sm:px-4 mb-2">
           <h2
             id="categories-heading"
-            className="text-sm sm:text-base font-800 text-foreground leading-tight"
+            className="text-base font-800 leading-tight text-foreground sm:text-lg"
           >
             Shop by Category
           </h2>
@@ -60,29 +76,21 @@ export default function CategoriesSection() {
         </div>
 
         <div
-          className="flex items-stretch gap-2 overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1 sm:-mx-4 sm:px-4"
+          className={`flex items-stretch ${resolvedStyle.gapClass} overflow-x-auto scrollbar-hide -mx-3 px-3 pb-1 sm:-mx-4 sm:px-4`}
           role="navigation"
           aria-label="Browse categories"
         >
           {items.map((c, i) => (
-            <Link
+            <CategoryCard
               key={c.id || `${c.name}-${i}`}
-              href={`/products?category=${encodeURIComponent(c.name)}`}
-              className="flex w-[92px] sm:w-[104px] flex-shrink-0 flex-col gap-1.5 rounded-2xl border border-border/60 bg-card p-2 transition-colors hover:border-primary/40"
-            >
-              <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-[#f7f4ee]">
-                {c.image ? (
-                  <AppImage src={c.image} alt="" fill className="object-cover" sizes="104px" />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-primary/10 text-primary">
-                    <Icon name="FolderIcon" size={24} />
-                  </div>
-                )}
-              </div>
-              <span className="line-clamp-1 text-center text-[11px] font-700 text-foreground leading-tight">
-                {c.name}
-              </span>
-            </Link>
+              spec={{
+                key: c.id || `${c.name}-${i}`,
+                name: c.name,
+                image: c.image,
+                href: `/products?category=${encodeURIComponent(c.name)}`,
+              }}
+              style={resolvedStyle}
+            />
           ))}
         </div>
       </div>
