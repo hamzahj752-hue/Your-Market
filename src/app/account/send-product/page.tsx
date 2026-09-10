@@ -185,9 +185,22 @@ export default function SendProductPage() {
         .select('name')
         .eq('active', true)
         .order('name', { ascending: true });
-      if (catData) {
-        setCategories(catData.map((c) => c.name));
-      }
+      const { data: foodData } = await supabase
+        .from('homepage_food_categories')
+        .select('name')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      const normalCategories = (catData ?? []).map((c) => c.name);
+      const foodCategories = (foodData ?? [])
+        .map((c) => c.name)
+        .filter((name): name is string => Boolean(name));
+
+      setCategories(
+        Array.from(
+          new Set([...normalCategories, 'Food', ...foodCategories])
+        ).sort()
+      );
     };
     loadCategories();
   }, []);
@@ -351,7 +364,7 @@ export default function SendProductPage() {
         if (/already linked to another account/i.test(errMsg)) {
           setSubmitError('This phone number is already linked to another account.');
         } else {
-          setSubmitError('Failed to send your request. Please try again.');
+          setSubmitError(`Failed to send: ${errMsg || error.code || "Unknown database error"}`);
         }
         setSubmitting(false);
         return;
@@ -851,4 +864,7 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+
+
 
