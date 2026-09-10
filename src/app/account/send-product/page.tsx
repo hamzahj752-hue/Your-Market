@@ -328,6 +328,7 @@ export default function SendProductPage() {
       const imageUrls = uploadedImages.filter((img) => img.path).map((img) => img.path as string);
 
       const { error } = await supabase.from('product_submissions').insert({
+        user_id: user.id,
         customer_name: name,
         customer_email: email,
         customer_phone: phone,
@@ -517,7 +518,7 @@ export default function SendProductPage() {
                           : 'border-border text-muted-foreground'
                     }`}
                   >
-                    {step > s.n ? '✓' : s.n}
+                    {step > s.n ? 'âœ“' : s.n}
                   </span>
                   {s.label}
                 </button>
@@ -771,7 +772,7 @@ export default function SendProductPage() {
                       useNewAddress,
                       address: locationAddress,
                       city: locationCity,
-                    }).snapshot || '—'
+                    }).snapshot || 'â€”'
                   }
                 />
                 <ReviewRow
@@ -846,7 +847,8 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4 border-b border-border last:border-0 pb-2 last:pb-0">
       <dt className="text-muted-foreground shrink-0">{label}</dt>
-      <dd className="text-right font-600 text-foreground break-words">{value || '—'}</dd>
+      <dd className="text-right font-600 text-foreground break-words">{value || 'â€”'}</dd>
     </div>
   );
 }
+
