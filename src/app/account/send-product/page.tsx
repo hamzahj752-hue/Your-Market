@@ -196,11 +196,7 @@ export default function SendProductPage() {
         .map((c) => c.name)
         .filter((name): name is string => Boolean(name));
 
-      setCategories(
-        Array.from(
-          new Set([...normalCategories, 'Food', ...foodCategories])
-        ).sort()
-      );
+      setCategories(Array.from(new Set([...normalCategories, 'Food', ...foodCategories])).sort());
     };
     loadCategories();
   }, []);
@@ -364,7 +360,7 @@ export default function SendProductPage() {
         if (/already linked to another account/i.test(errMsg)) {
           setSubmitError('This phone number is already linked to another account.');
         } else {
-          setSubmitError(`Failed to send: ${errMsg || error.code || "Unknown database error"}`);
+          setSubmitError(`Failed to send: ${errMsg || error.code || 'Unknown database error'}`);
         }
         setSubmitting(false);
         return;
@@ -864,7 +860,4 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-
-
 
